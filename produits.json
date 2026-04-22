@@ -1,5 +1,5 @@
 {
-  "version": "2.0",
+  "version": "2.1",
   "etablissements": [
     {
       "id": "e1",
@@ -85,25 +85,29 @@
       "id": "u1",
       "nom": "Victor",
       "role": "admin",
-      "libelle": "Contrôleur de gestion"
+      "libelle": "Contrôleur de gestion",
+      "pinHash": "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4"
     },
     {
       "id": "u2",
       "nom": "Raph",
       "role": "editeur",
-      "libelle": "Direction"
+      "libelle": "Direction",
+      "pinHash": "38083c7ee9121e17401883566a148aa5c2e2d55dc53bc4a94a026517dbff3c6b"
     },
     {
       "id": "u3",
       "nom": "Pierre Alexis",
       "role": "editeur",
-      "libelle": "Chef sommelier"
+      "libelle": "Chef sommelier",
+      "pinHash": "ceaa28bba4caba687dc31b1bbe79eca3c70c33f871f1ce8f528cf9ab5cfd76dd"
     },
     {
       "id": "u4",
       "nom": "Lou",
       "role": "lecteur",
-      "libelle": "Graphiste"
+      "libelle": "Graphiste",
+      "pinHash": "db2e7f1bd5ab9968ae76199b7cc74795ca7404d5a08d78567715ce532f9d2669"
     }
   ],
   "fournisseurs": [

@@ -4,13 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="theme-color" content="#F6F1E7" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <title>CTM · Carte Tarif Millésime</title>
 
-  <!-- Icônes / PWA -->
-  <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png">
-  <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
-  <link rel="manifest" href="./manifest.json">
+  <!-- Icônes / PWA (avec version pour contourner le cache mobile) -->
+  <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png?v=1.2.0">
+  <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png?v=1.2.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png?v=1.2.0">
+  <link rel="manifest" href="./manifest.json?v=1.2.0">
 
   <!-- Fonts Google : Fraunces (serif) + Manrope (sans) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -54,7 +57,22 @@
 const { useState, useEffect, useMemo } = React;
 
 // Version de l'app (à incrémenter à chaque mise à jour de l'index.html)
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.2.0';
+
+// Hash SHA-256 d'un PIN (pour l'auth côté client)
+async function hashPin(pin) {
+  const data = new TextEncoder().encode(String(pin));
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Types de cartes : seul 'vin' est pleinement fonctionnel pour l'instant
+const TYPES_CARTE = [
+  { code: 'vin', label: 'Vins', icon: 'wine', statut: 'actif' },
+  { code: 'boisson', label: 'Boissons', icon: 'file', statut: 'bientot' },
+  { code: 'club', label: 'Club', icon: 'file', statut: 'bientot' },
+  { code: 'food', label: 'Food', icon: 'file', statut: 'bientot' },
+];
 
 // ==================== ICÔNES (SVG Lucide inline) ====================
 const IconPaths = {
@@ -353,26 +371,160 @@ function ProduitEditModal({ produit, fournisseurs, onSave, onClose, user, onRequ
   );
 }
 
+// ==================== LOGIN ====================
+
+function LoginScreen({ utilisateurs, onLogin }) {
+  const [selected, setSelected] = useState(null);
+  const [pin, setPin] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleDigit = (d) => {
+    setError('');
+    if (pin.length < 4) setPin(pin + d);
+  };
+  const handleDelete = () => { setError(''); setPin(pin.slice(0, -1)); };
+  const handleCancel = () => { setSelected(null); setPin(''); setError(''); };
+
+  useEffect(() => {
+    if (pin.length === 4 && selected) {
+      (async () => {
+        setLoading(true);
+        const h = await hashPin(pin);
+        if (h === selected.pinHash) {
+          onLogin(selected);
+        } else {
+          setError('Code incorrect');
+          setPin('');
+          setLoading(false);
+        }
+      })();
+    }
+  }, [pin, selected]);
+
+  if (!selected) {
+    return (
+      <div style={{ backgroundColor: tokens.bg, minHeight: '100vh', ...fontBody }}
+           className="flex flex-col items-center justify-center p-6">
+        <div className="text-center mb-8">
+          <img src="./icon-192.png?v=1.2.0" alt="CTM"
+               style={{ width: 72, height: 72, borderRadius: 16, margin: '0 auto 16px' }} />
+          <h1 style={{ ...fontDisplay, color: tokens.ink }} className="text-3xl font-semibold">CTM</h1>
+          <p style={{ ...fontBody, color: tokens.inkSoft }} className="text-sm mt-1">
+            Qui se connecte ?
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-3 w-full max-w-md">
+          {utilisateurs.map((u) => (
+            <Card key={u.id} className="p-4 text-center" onClick={() => setSelected(u)}>
+              <div style={{
+                width: 48, height: 48, borderRadius: 24, margin: '0 auto 8px',
+                backgroundColor: tokens.bgAlt,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                ...fontDisplay, color: tokens.ink, fontSize: 20, fontWeight: 600
+              }}>
+                {u.nom[0]}
+              </div>
+              <div style={{ ...fontDisplay, color: tokens.ink }} className="font-semibold">{u.nom}</div>
+              <div style={{ ...fontBody, color: tokens.inkSoft }} className="text-xs mt-0.5">{u.libelle}</div>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Écran PIN
+  return (
+    <div style={{ backgroundColor: tokens.bg, minHeight: '100vh', ...fontBody }}
+         className="flex flex-col items-center justify-center p-6">
+      <div className="text-center mb-6">
+        <div style={{
+          width: 64, height: 64, borderRadius: 32, margin: '0 auto 12px',
+          backgroundColor: tokens.bgAlt,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          ...fontDisplay, color: tokens.ink, fontSize: 24, fontWeight: 600
+        }}>
+          {selected.nom[0]}
+        </div>
+        <h2 style={{ ...fontDisplay, color: tokens.ink }} className="text-xl font-semibold">
+          Bonjour {selected.nom}
+        </h2>
+        <p style={{ ...fontBody, color: tokens.inkSoft }} className="text-sm mt-1">Entrez votre code</p>
+      </div>
+      <div className="flex gap-3 mb-6">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} style={{
+            width: 48, height: 56, borderRadius: 8,
+            backgroundColor: tokens.bgCard, borderColor: tokens.border,
+            borderWidth: 1, borderStyle: 'solid',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            ...fontDisplay, color: tokens.ink, fontSize: 28, fontWeight: 600,
+          }}>
+            {pin[i] ? '•' : ''}
+          </div>
+        ))}
+      </div>
+      {error && (
+        <p style={{ color: tokens.red, ...fontBody }} className="text-sm mb-3">{error}</p>
+      )}
+      <div className="grid grid-cols-3 gap-2 w-full max-w-xs">
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => (
+          <button key={d} onClick={() => handleDigit(String(d))} disabled={loading}
+                  style={{
+                    ...fontDisplay, backgroundColor: tokens.bgCard, color: tokens.ink,
+                    borderColor: tokens.border,
+                  }}
+                  className="border rounded-xl py-4 text-2xl font-semibold transition-colors active:bg-gray-100">
+            {d}
+          </button>
+        ))}
+        <button onClick={handleCancel}
+                style={{ ...fontBody, color: tokens.inkSoft }}
+                className="py-4 text-sm">Annuler</button>
+        <button onClick={() => handleDigit('0')} disabled={loading}
+                style={{
+                  ...fontDisplay, backgroundColor: tokens.bgCard, color: tokens.ink,
+                  borderColor: tokens.border,
+                }}
+                className="border rounded-xl py-4 text-2xl font-semibold active:bg-gray-100">0</button>
+        <button onClick={handleDelete}
+                style={{ ...fontBody, color: tokens.inkSoft }}
+                className="py-4 flex items-center justify-center">
+          <Icon name="arrowLeft" size={20} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ==================== HEADER / SIDEBAR ====================
-function Header({ user, onUserChange, onToggleSidebar, utilisateurs }) {
+function Header({ user, onLogout, onToggleSidebar }) {
   return (
     <header style={{ backgroundColor: tokens.bgCard, borderColor: tokens.border }} className="border-b px-4 lg:px-8 py-3 flex items-center justify-between sticky top-0 z-30">
       <div className="flex items-center gap-3">
         <button className="lg:hidden" onClick={onToggleSidebar}>
           <Icon name="menu" size={22} style={{ color: tokens.ink }} />
         </button>
-        <img src="./icon-192.png" alt="CTM" width="36" height="36"
+        <img src="./icon-192.png?v=1.2.0" alt="CTM" width="36" height="36"
              style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover' }} />
         <div className="flex items-baseline gap-2">
           <span style={{ ...fontDisplay, color: tokens.ink }} className="text-2xl font-semibold tracking-tight">CTM</span>
           <span style={{ ...fontBody, color: tokens.inkFaint }} className="hidden sm:inline text-xs tracking-widest uppercase">Carte · Tarif · Millésime</span>
         </div>
       </div>
-      <select value={user.id} onChange={(e) => onUserChange(utilisateurs.find((u) => u.id === e.target.value))}
-        style={{ ...fontBody, backgroundColor: tokens.bgAlt, color: tokens.ink, borderColor: tokens.border }}
-        className="border text-sm rounded-lg px-3 py-1.5">
-        {utilisateurs.map((u) => <option key={u.id} value={u.id}>{u.nom} · {u.libelle}</option>)}
-      </select>
+      <div className="flex items-center gap-2">
+        <div className="text-right hidden sm:block">
+          <div style={{ ...fontBody, color: tokens.ink }} className="text-sm font-medium">{user.nom}</div>
+          <div style={{ ...fontBody, color: tokens.inkFaint }} className="text-[10px] uppercase tracking-wider">{user.libelle}</div>
+        </div>
+        <button onClick={onLogout}
+                style={{ ...fontBody, backgroundColor: tokens.bgAlt, color: tokens.inkSoft, borderColor: tokens.border }}
+                className="border rounded-lg px-3 py-1.5 text-xs"
+                title="Se déconnecter">
+          <Icon name="arrowLeft" size={14} />
+        </button>
+      </div>
     </header>
   );
 }
@@ -428,7 +580,7 @@ function Sidebar({ view, setView, isMobile, isOpen, onClose, alertCount }) {
 }
 
 // ==================== PAGES (partie 1) ====================
-function HomePage({ user, produits, cartes, alertes, etablissements, onOpenCard, onCreateCard }) {
+function HomePage({ user, produits, cartes, alertes, etablissements, onOpenEtablissement }) {
   const alertesVisibles = user.role === 'admin' ? alertes.filter((a) => !a.lue) : [];
   return (
     <div className="p-4 lg:p-8 max-w-7xl mx-auto">
@@ -473,12 +625,9 @@ function HomePage({ user, produits, cartes, alertes, etablissements, onOpenCard,
       <h2 style={{ ...fontDisplay, color: tokens.ink }} className="text-xl font-semibold mb-4">Établissements</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
         {etablissements.filter(e => !e.stockOnly).map((etab) => {
-          const carte = cartes.find((c) => c.etablissementId === etab.id && c.annee === 2026);
+          const nbCartes = cartes.filter((c) => c.etablissementId === etab.id).length;
           return (
-            <Card key={etab.id} className="p-4 lg:p-5" onClick={() => {
-              if (carte) onOpenCard(carte.id);
-              else onCreateCard(etab.id);
-            }}>
+            <Card key={etab.id} className="p-4 lg:p-5" onClick={() => onOpenEtablissement(etab.id)}>
               <div className="flex items-start justify-between gap-2 mb-3">
                 <div>
                   <h3 style={{ ...fontDisplay, color: tokens.ink }} className="text-lg font-semibold leading-tight">{etab.nom}</h3>
@@ -492,20 +641,266 @@ function HomePage({ user, produits, cartes, alertes, etablissements, onOpenCard,
                 </div>
               </div>
               <div className="flex items-center justify-between pt-3 border-t" style={{ borderColor: tokens.border }}>
-                {carte ? (
-                  <React.Fragment>
-                    <Badge variant={carte.statut === 'validee' ? 'validated' : 'draft'}>
-                      {carte.statut === 'validee' ? '✓ Validée' : 'Brouillon'}
-                    </Badge>
-                    <span style={{ ...fontBody, color: tokens.inkFaint }} className="text-xs">{carte.lignes?.length || 0} ref.</span>
-                  </React.Fragment>
-                ) : (
-                  <span style={{ ...fontBody, color: tokens.inkFaint }} className="text-xs italic">Aucune carte · cliquer pour créer</span>
-                )}
+                <span style={{ ...fontBody, color: tokens.inkSoft }} className="text-xs">
+                  {nbCartes === 0 ? 'Aucune carte' : `${nbCartes} carte${nbCartes > 1 ? 's' : ''}`}
+                </span>
+                <Icon name="chevronRight" size={16} style={{ color: tokens.inkFaint }} />
               </div>
             </Card>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+function EtablissementPage({ etablissement, cartes, user, onBack, onOpenCard, onCreateCard, onRenameCard, onDuplicateCard, onDeleteCard }) {
+  const [showCreate, setShowCreate] = useState(false);
+  const [duplicateFrom, setDuplicateFrom] = useState(null);
+  const [renaming, setRenaming] = useState(null);
+  const [newName, setNewName] = useState('');
+  const cartesEtab = cartes.filter((c) => c.etablissementId === etablissement.id)
+    .sort((a, b) => (b.annee || 0) - (a.annee || 0) || (b.dateModif || 0) - (a.dateModif || 0));
+  const canEdit = user.role !== 'lecteur';
+
+  // Grouper par type
+  const parType = useMemo(() => {
+    const m = {};
+    TYPES_CARTE.forEach((t) => { m[t.code] = []; });
+    cartesEtab.forEach((c) => {
+      const t = c.type || 'vin';
+      if (!m[t]) m[t] = [];
+      m[t].push(c);
+    });
+    return m;
+  }, [cartesEtab]);
+
+  return (
+    <div className="p-4 lg:p-8 max-w-7xl mx-auto">
+      <Button variant="ghost" icon="arrowLeft" onClick={onBack} className="mb-4">Retour</Button>
+
+      <div className="flex items-start justify-between flex-wrap gap-3 mb-8">
+        <div>
+          <h1 style={{ ...fontDisplay, color: tokens.ink }} className="text-2xl lg:text-3xl font-semibold">{etablissement.nom}</h1>
+          <p style={{ ...fontBody, color: tokens.inkSoft }} className="text-sm mt-1 flex items-center gap-2 flex-wrap">
+            <Icon name="mapPin" size={12} /> {etablissement.lieu} ·
+            <Badge>{etablissement.saison}</Badge>
+            {etablissement.tva === 0 && <Badge>TVA 0%</Badge>}
+          </p>
+        </div>
+        {canEdit && (
+          <Button variant="accent" icon="plus" onClick={() => { setDuplicateFrom(null); setShowCreate(true); }}>
+            Nouvelle carte
+          </Button>
+        )}
+      </div>
+
+      {cartesEtab.length === 0 ? (
+        <Card className="p-12 text-center">
+          <div className="flex justify-center mb-3"><Icon name="file" size={36} style={{ color: tokens.inkFaint }} /></div>
+          <p style={{ ...fontBody, color: tokens.inkSoft }} className="mb-4">Aucune carte pour cet établissement.</p>
+          {canEdit && (
+            <Button variant="accent" icon="plus" onClick={() => { setDuplicateFrom(null); setShowCreate(true); }}>
+              Créer la première carte
+            </Button>
+          )}
+        </Card>
+      ) : (
+        <div className="space-y-6">
+          {TYPES_CARTE.map((t) => {
+            const cartesType = parType[t.code] || [];
+            if (cartesType.length === 0) return null;
+            return (
+              <div key={t.code}>
+                <h2 style={{ ...fontDisplay, color: tokens.ink }} className="text-lg font-semibold mb-3 flex items-center gap-2">
+                  <Icon name={t.icon} size={18} /> {t.label}
+                  <Badge>{cartesType.length}</Badge>
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {cartesType.map((c) => (
+                    <Card key={c.id} className="p-4">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="flex-1 min-w-0" onClick={() => onOpenCard(c.id)} style={{ cursor: 'pointer' }}>
+                          <h3 style={{ ...fontDisplay, color: tokens.ink }} className="font-semibold leading-tight">
+                            {c.nom || `${t.label} ${c.annee}`}
+                          </h3>
+                          <div style={{ ...fontBody, color: tokens.inkSoft }} className="text-xs mt-0.5 flex items-center gap-2 flex-wrap">
+                            <span>{c.annee}</span>
+                            {c.periode && <><span>·</span><span>{c.periode}</span></>}
+                          </div>
+                        </div>
+                        <Badge variant={c.statut === 'validee' ? 'validated' : 'draft'}>
+                          {c.statut === 'validee' ? '✓ Validée' : 'Brouillon'}
+                        </Badge>
+                      </div>
+                      <div className="pt-3 border-t flex items-center justify-between" style={{ borderColor: tokens.border }}>
+                        <span style={{ ...fontBody, color: tokens.inkFaint }} className="text-xs">
+                          {c.lignes?.length || 0} réf.
+                        </span>
+                        {canEdit && (
+                          <div className="flex gap-1">
+                            <button onClick={(e) => { e.stopPropagation(); setRenaming(c); setNewName(c.nom || ''); }}
+                                    className="p-1.5 rounded hover:bg-black/5" title="Renommer">
+                              <Icon name="edit" size={14} style={{ color: tokens.inkSoft }} />
+                            </button>
+                            <button onClick={(e) => { e.stopPropagation(); setDuplicateFrom(c); setShowCreate(true); }}
+                                    className="p-1.5 rounded hover:bg-black/5" title="Dupliquer">
+                              <Icon name="copy" size={14} style={{ color: tokens.inkSoft }} />
+                            </button>
+                            <button onClick={(e) => { e.stopPropagation();
+                              if (confirm(`Supprimer la carte "${c.nom || 'sans nom'}" ?`)) onDeleteCard(c.id);
+                            }} className="p-1.5 rounded hover:bg-red-50" title="Supprimer">
+                              <Icon name="trash" size={14} style={{ color: tokens.red }} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {showCreate && (
+        <CreateCardModal
+          etablissement={etablissement}
+          duplicateFrom={duplicateFrom}
+          onCreate={(data) => { onCreateCard(data, duplicateFrom); setShowCreate(false); setDuplicateFrom(null); }}
+          onClose={() => { setShowCreate(false); setDuplicateFrom(null); }}
+        />
+      )}
+
+      {renaming && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div style={{ backgroundColor: tokens.bg }} className="w-full max-w-md rounded-xl p-5">
+            <h3 style={{ ...fontDisplay, color: tokens.ink }} className="text-lg font-semibold mb-3">Renommer la carte</h3>
+            <Input value={newName} onChange={setNewName} placeholder="Nom de la carte" />
+            <div className="flex gap-2 justify-end mt-4">
+              <Button variant="ghost" onClick={() => setRenaming(null)}>Annuler</Button>
+              <Button variant="primary" onClick={() => {
+                onRenameCard(renaming.id, newName.trim());
+                setRenaming(null);
+              }} disabled={!newName.trim()}>Enregistrer</Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CreateCardModal({ etablissement, duplicateFrom, onCreate, onClose }) {
+  const defaultType = duplicateFrom?.type || 'vin';
+  const defaultAnnee = duplicateFrom?.annee || new Date().getFullYear();
+  const [type, setType] = useState(defaultType);
+  const [annee, setAnnee] = useState(defaultAnnee);
+  const [periode, setPeriode] = useState(duplicateFrom?.periode || '');
+  const [nom, setNom] = useState('');
+
+  const typeObj = TYPES_CARTE.find((t) => t.code === type);
+  const canSubmit = type && annee;
+
+  const suggestedPeriodes = ['Ouverture', 'Mi-saison', 'Fin de saison'];
+
+  // Nom suggéré si vide
+  const getNomFinal = () => {
+    if (nom.trim()) return nom.trim();
+    const parts = [typeObj.label, annee];
+    if (periode) parts.push(periode);
+    return parts.join(' · ');
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-end lg:items-center justify-center p-0 lg:p-4">
+      <div style={{ backgroundColor: tokens.bg }} className="w-full lg:max-w-xl lg:rounded-xl max-h-[95vh] flex flex-col">
+        <div style={{ borderColor: tokens.border }} className="border-b p-4 flex items-center justify-between">
+          <h2 style={{ ...fontDisplay, color: tokens.ink }} className="text-xl font-semibold">
+            {duplicateFrom ? 'Dupliquer une carte' : 'Nouvelle carte'}
+          </h2>
+          <button onClick={onClose}><Icon name="x" size={22} style={{ color: tokens.ink }} /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {duplicateFrom && (
+            <div style={{ backgroundColor: tokens.bgAlt, borderColor: tokens.border }} className="border rounded-lg p-3">
+              <div style={{ ...fontBody, color: tokens.inkSoft }} className="text-xs uppercase tracking-wider mb-1">Duplication depuis</div>
+              <div style={{ ...fontDisplay, color: tokens.ink }} className="font-semibold">
+                {duplicateFrom.nom || `${TYPES_CARTE.find(t => t.code === duplicateFrom.type)?.label} ${duplicateFrom.annee}`}
+              </div>
+              <div style={{ ...fontBody, color: tokens.inkFaint }} className="text-xs mt-0.5">
+                {duplicateFrom.lignes?.length || 0} références reprises
+              </div>
+            </div>
+          )}
+          <div>
+            <Label>Établissement</Label>
+            <div style={{ ...fontBody, color: tokens.ink }} className="text-sm">{etablissement.nom} · {etablissement.lieu}</div>
+          </div>
+          <div>
+            <Label>Type de carte</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {TYPES_CARTE.map((t) => (
+                <button key={t.code} onClick={() => setType(t.code)} disabled={!!duplicateFrom && t.code !== duplicateFrom.type}
+                        style={{
+                          ...fontBody,
+                          backgroundColor: type === t.code ? tokens.ink : tokens.bgCard,
+                          color: type === t.code ? tokens.bg : tokens.ink,
+                          borderColor: tokens.border,
+                          opacity: (!!duplicateFrom && t.code !== duplicateFrom.type) ? 0.4 : 1,
+                        }}
+                        className="border rounded-lg py-3 text-sm font-medium transition-colors flex flex-col items-center gap-1">
+                  <span>{t.label}</span>
+                  {t.statut === 'bientot' && (
+                    <span style={{ fontSize: 9, opacity: 0.7 }}>bientôt dispo</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Année</Label>
+              <Input value={annee} onChange={(v) => setAnnee(parseInt(v) || '')} type="number" />
+            </div>
+            <div>
+              <Label>Période</Label>
+              <Input value={periode} onChange={setPeriode} placeholder="ex : Mi-saison" />
+              <div className="flex flex-wrap gap-1 mt-1">
+                {suggestedPeriodes.map((p) => (
+                  <button key={p} onClick={() => setPeriode(p)}
+                          style={{ ...fontBody, backgroundColor: tokens.bgAlt, color: tokens.inkSoft, borderColor: tokens.border }}
+                          className="border rounded-md px-2 py-0.5 text-[10px]">{p}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div>
+            <Label>Nom de la carte (optionnel)</Label>
+            <Input value={nom} onChange={setNom} placeholder={getNomFinal()} />
+            <p style={{ ...fontBody, color: tokens.inkFaint }} className="text-xs mt-1">
+              Si vide : « {getNomFinal()} »
+            </p>
+          </div>
+          {typeObj?.statut === 'bientot' && (
+            <div style={{ backgroundColor: '#F3E8CA', borderColor: '#E5D59C' }} className="border rounded-lg p-3">
+              <p style={{ ...fontBody, color: '#8A6B1F' }} className="text-xs">
+                <Icon name="alertCircle" size={12} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />
+                L'éditeur pour ce type sera disponible dans une prochaine version. Tu peux créer la carte dès maintenant, mais l'édition des contenus se fera plus tard.
+              </p>
+            </div>
+          )}
+        </div>
+        <div style={{ borderColor: tokens.border, backgroundColor: tokens.bgCard }} className="border-t p-4 flex justify-end gap-2">
+          <Button variant="ghost" onClick={onClose}>Annuler</Button>
+          <Button variant="primary" icon="save" onClick={() => onCreate({
+            nom: getNomFinal(),
+            type, annee, periode: periode || null,
+          })} disabled={!canSubmit}>
+            {duplicateFrom ? 'Dupliquer' : 'Créer'}
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -830,6 +1225,9 @@ function CardEditor({ carte, produits, etablissements, user, onBack, onSave, onP
   const etab = etablissements.find((e) => e.id === carte.etablissementId);
   const canEdit = user.role !== 'lecteur';
   const tva = etab?.tva ?? 0.20;
+  const typeCarte = carte.type || 'vin';
+  const typeObj = TYPES_CARTE.find((t) => t.code === typeCarte);
+  const isBientot = typeObj?.statut === 'bientot';
   const sections = useMemo(() => {
     const map = {};
     lignes.forEach((l) => {
@@ -862,21 +1260,37 @@ function CardEditor({ carte, produits, etablissements, user, onBack, onSave, onP
       <Button variant="ghost" icon="arrowLeft" onClick={onBack} className="mb-4">Retour</Button>
       <div className="flex items-start justify-between flex-wrap gap-3 mb-6">
         <div>
-          <h1 style={{ ...fontDisplay, color: tokens.ink }} className="text-2xl lg:text-3xl font-semibold">{etab?.nom} · {carte.annee}</h1>
+          <div style={{ ...fontBody, color: tokens.inkFaint }} className="text-[10px] uppercase tracking-wider">
+            {etab?.nom} · {etab?.lieu}
+          </div>
+          <h1 style={{ ...fontDisplay, color: tokens.ink }} className="text-2xl lg:text-3xl font-semibold mt-0.5">
+            {carte.nom || `${typeObj?.label || 'Carte'} ${carte.annee}`}
+          </h1>
           <p style={{ ...fontBody, color: tokens.inkSoft }} className="text-sm mt-1 flex items-center gap-2 flex-wrap">
-            <Icon name="mapPin" size={12} /> {etab?.lieu} ·
+            <Badge>{typeObj?.label || typeCarte}</Badge>
+            {carte.periode && <Badge>{carte.periode}</Badge>}
             <Badge variant={carte.statut === 'validee' ? 'validated' : 'draft'}>
               {carte.statut === 'validee' ? '✓ Validée' : 'Brouillon'}
             </Badge>
             <Badge>TVA {(tva * 100).toFixed(tva === 0 ? 0 : 1)}%</Badge>
           </p>
         </div>
-        <div className="flex gap-2">
-          {canEdit && <Button variant="secondary" icon="save" onClick={handleSave}>Enregistrer</Button>}
+        {!isBientot && (
+          <div className="flex gap-2">
+            {canEdit && <Button variant="secondary" icon="save" onClick={handleSave}>Enregistrer</Button>}
           <Button variant="primary" icon="eye" onClick={() => { handleSave(); onPreview(carte.id); }}>Aperçu PDF</Button>
         </div>
       </div>
-      {sections.length === 0 ? (
+      {isBientot ? (
+        <Card className="p-12 text-center">
+          <div className="flex justify-center mb-3"><Icon name="alertCircle" size={36} style={{ color: tokens.accent }} /></div>
+          <h3 style={{ ...fontDisplay, color: tokens.ink }} className="text-xl font-semibold mb-2">Éditeur {typeObj?.label} — bientôt disponible</h3>
+          <p style={{ ...fontBody, color: tokens.inkSoft }} className="text-sm max-w-md mx-auto">
+            La carte est créée et référencée. L'éditeur pour le type <strong>{typeObj?.label}</strong> sera développé dans une prochaine version.
+            En attendant, tu peux la renommer, la dupliquer ou la supprimer depuis la page de l'établissement.
+          </p>
+        </Card>
+      ) : sections.length === 0 ? (
         <Card className="p-12 text-center">
           <div className="flex justify-center mb-3"><Icon name="wine" size={36} style={{ color: tokens.inkFaint }} /></div>
           <p style={{ ...fontBody, color: tokens.inkSoft }} className="mb-4">Cette carte est vide.</p>
@@ -1122,6 +1536,7 @@ function App() {
   const [alertes, setAlertes] = useState([]);
   const [etablissements, setEtablissements] = useState([]);
   const [currentCardId, setCurrentCardId] = useState(null);
+  const [currentEtablissementId, setCurrentEtablissementId] = useState(null);
   const [editingProduit, setEditingProduit] = useState(null);
   const [isCreatingProduit, setIsCreatingProduit] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -1149,15 +1564,31 @@ function App() {
 
         const localProduits = versionChanged ? null : storage.get('ctm:produits');
         const localFournisseurs = versionChanged ? null : storage.get('ctm:fournisseurs');
-        const localCartes = storage.get('ctm:cartes');
-        const localAlertes = storage.get('ctm:alertes');
+        const localCartes = storage.get('ctm:cartes') || [];
+        const localAlertes = storage.get('ctm:alertes') || [];
+
+        // Migration des cartes anciennes : ajouter type, nom, periode si absents
+        const migratedCartes = localCartes.map((c) => ({
+          ...c,
+          type: c.type || 'vin',
+          nom: c.nom || `Vins ${c.annee || ''}`,
+          periode: c.periode || null,
+        }));
+
+        const utils = data.utilisateurs || [];
         setEtablissements(data.etablissements || []);
-        setUtilisateurs(data.utilisateurs || []);
+        setUtilisateurs(utils);
         setProduits(localProduits || data.produits || []);
         setFournisseurs(localFournisseurs || data.fournisseurs || []);
-        setCartes(localCartes || []);
-        setAlertes(localAlertes || []);
-        setUser((data.utilisateurs || [])[0] || null);
+        setCartes(migratedCartes);
+        setAlertes(localAlertes);
+
+        // Restaurer l'utilisateur courant depuis localStorage
+        const savedUserId = storage.get('ctm:currentUserId');
+        if (savedUserId) {
+          const savedUser = utils.find((u) => u.id === savedUserId);
+          if (savedUser) setUser(savedUser);
+        }
       } catch (e) {
         setLoadError(e.message);
       }
@@ -1174,16 +1605,59 @@ function App() {
     storage.set('ctm:alertes', alertes);
   }, [produits, fournisseurs, cartes, alertes, loading]);
 
-  const handleCreateCard = (etablissementId) => {
+  // ==================== HANDLERS ====================
+
+  const handleLogin = (u) => {
+    setUser(u);
+    storage.set('ctm:currentUserId', u.id);
+  };
+  const handleLogout = () => {
+    setUser(null);
+    setView('home');
+    setCurrentEtablissementId(null);
+    setCurrentCardId(null);
+    localStorage.removeItem('ctm:currentUserId');
+  };
+
+  const handleOpenEtablissement = (etabId) => {
+    setCurrentEtablissementId(etabId);
+    setView('etablissement');
+  };
+
+  const handleCreateCard = (cardData, duplicateFrom) => {
     const newCarte = {
-      id: `c${Date.now()}`,
-      etablissementId: etablissementId || etablissements[0]?.id,
-      annee: 2026, statut: 'brouillon', lignes: [],
-      dateModif: Date.now(), auteur: user.nom,
+      id: `c${Date.now()}${Math.random().toString(36).slice(2, 6)}`,
+      etablissementId: currentEtablissementId,
+      nom: cardData.nom,
+      type: cardData.type,
+      annee: cardData.annee,
+      periode: cardData.periode,
+      statut: 'brouillon',
+      // Si duplication : reprendre les lignes (nouveaux ids de lignes)
+      lignes: duplicateFrom
+        ? (duplicateFrom.lignes || []).map((l) => ({
+            ...l,
+            id: `l${Date.now()}${Math.random().toString(36).slice(2, 6)}`,
+          }))
+        : [],
+      dateModif: Date.now(),
+      auteur: user.nom,
     };
     setCartes([...cartes, newCarte]);
-    setCurrentCardId(newCarte.id);
-    setView('editor');
+    // Si l'éditeur existe pour ce type, on ouvre
+    const typeObj = TYPES_CARTE.find((t) => t.code === cardData.type);
+    if (typeObj?.statut === 'actif') {
+      setCurrentCardId(newCarte.id);
+      setView('editor');
+    }
+  };
+
+  const handleRenameCard = (cardId, newName) => {
+    setCartes(cartes.map((c) => c.id === cardId ? { ...c, nom: newName, dateModif: Date.now() } : c));
+  };
+
+  const handleDeleteCard = (cardId) => {
+    setCartes(cartes.filter((c) => c.id !== cardId));
   };
 
   const handleSaveProduit = (produit) => {
@@ -1230,14 +1704,12 @@ function App() {
       </div>
     );
   }
-  if (loadError || !user) {
+  if (loadError) {
     return (
       <div style={{ backgroundColor: tokens.bg }} className="min-h-screen flex items-center justify-center p-6 text-center">
         <div>
           <div style={{ ...fontDisplay, color: tokens.red }} className="text-xl font-semibold mb-2">Erreur de chargement</div>
-          <p style={{ ...fontBody, color: tokens.inkSoft }} className="text-sm">
-            {loadError || "Aucun utilisateur trouvé dans produits.json"}
-          </p>
+          <p style={{ ...fontBody, color: tokens.inkSoft }} className="text-sm">{loadError}</p>
           <p style={{ ...fontBody, color: tokens.inkFaint }} className="text-xs mt-4">
             Vérifie que le fichier produits.json est bien à la racine du site et que le JSON est valide.
           </p>
@@ -1246,27 +1718,46 @@ function App() {
     );
   }
 
+  // Pas d'utilisateur connecté → écran de login
+  if (!user) {
+    return <LoginScreen utilisateurs={utilisateurs} onLogin={handleLogin} />;
+  }
+
   const currentCard = cartes.find((c) => c.id === currentCardId);
+  const currentEtab = etablissements.find((e) => e.id === currentEtablissementId);
 
   return (
     <div style={{ backgroundColor: tokens.bg, minHeight: '100vh', ...fontBody }} className="flex flex-col">
-      <Header user={user} onUserChange={setUser} onToggleSidebar={() => setSidebarOpen(true)} utilisateurs={utilisateurs} />
+      <Header user={user} onLogout={handleLogout} onToggleSidebar={() => setSidebarOpen(true)} />
       <div className="flex flex-1">
         <Sidebar view={view} setView={setView} isMobile={false} isOpen={false} onClose={() => {}} alertCount={alertCount} />
         <Sidebar view={view} setView={setView} isMobile={true} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} alertCount={alertCount} />
         <main className="flex-1 overflow-x-hidden">
           {view === 'home' && <HomePage user={user} produits={produits} cartes={cartes} alertes={alertes} etablissements={etablissements}
-            onOpenCard={(id) => { setCurrentCardId(id); setView('editor'); }} onCreateCard={handleCreateCard} />}
+            onOpenEtablissement={handleOpenEtablissement} />}
+          {view === 'etablissement' && currentEtab && <EtablissementPage
+            etablissement={currentEtab} cartes={cartes} user={user}
+            onBack={() => { setCurrentEtablissementId(null); setView('home'); }}
+            onOpenCard={(id) => { setCurrentCardId(id); setView('editor'); }}
+            onCreateCard={handleCreateCard}
+            onRenameCard={handleRenameCard}
+            onDuplicateCard={() => {}}
+            onDeleteCard={handleDeleteCard}
+          />}
           {view === 'catalog' && <CatalogPage produits={produits} fournisseurs={fournisseurs} user={user}
             onEditProduit={setEditingProduit} onAddProduit={() => setIsCreatingProduit(true)} />}
           {view === 'suppliers' && <SuppliersPage produits={produits} fournisseurs={fournisseurs} user={user} onEditProduit={setEditingProduit} />}
           {view === 'cards' && <CardsPage cartes={cartes} etablissements={etablissements} user={user}
-            onOpenCard={(id) => { setCurrentCardId(id); setView('editor'); }} onCreateCard={handleCreateCard} />}
+            onOpenCard={(id) => { setCurrentCardId(id); setView('editor'); }}
+            onCreateCard={(etabId) => { setCurrentEtablissementId(etabId); setView('etablissement'); }} />}
           {view === 'alerts' && <AlertsPage alertes={alertes} user={user}
             onMarkRead={(id) => setAlertes(alertes.map((a) => a.id === id ? { ...a, lue: true } : a))}
             onApproveCreation={handleApproveCreation} />}
           {view === 'editor' && currentCard && <CardEditor carte={currentCard} produits={produits} etablissements={etablissements} user={user}
-            onBack={() => setView('cards')}
+            onBack={() => {
+              if (currentEtablissementId) setView('etablissement');
+              else setView('cards');
+            }}
             onSave={(updated) => setCartes(cartes.map((c) => c.id === updated.id ? updated : c))}
             onPreview={(id) => { setCurrentCardId(id); setView('preview'); }}
             onEditProduit={setEditingProduit} />}
