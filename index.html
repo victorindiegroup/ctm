@@ -6,6 +6,12 @@
   <meta name="theme-color" content="#F6F1E7" />
   <title>CTM · Carte Tarif Millésime</title>
 
+  <!-- Icônes / PWA -->
+  <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
+  <link rel="manifest" href="./manifest.json">
+
   <!-- Fonts Google : Fraunces (serif) + Manrope (sans) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -46,6 +52,9 @@
   <script type="text/babel" data-presets="react">
 // ==================== HOOKS & REACT GLOBALS ====================
 const { useState, useEffect, useMemo } = React;
+
+// Version de l'app (à incrémenter à chaque mise à jour de l'index.html)
+const APP_VERSION = '1.1.0';
 
 // ==================== ICÔNES (SVG Lucide inline) ====================
 const IconPaths = {
@@ -352,6 +361,8 @@ function Header({ user, onUserChange, onToggleSidebar, utilisateurs }) {
         <button className="lg:hidden" onClick={onToggleSidebar}>
           <Icon name="menu" size={22} style={{ color: tokens.ink }} />
         </button>
+        <img src="./icon-192.png" alt="CTM" width="36" height="36"
+             style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover' }} />
         <div className="flex items-baseline gap-2">
           <span style={{ ...fontDisplay, color: tokens.ink }} className="text-2xl font-semibold tracking-tight">CTM</span>
           <span style={{ ...fontBody, color: tokens.inkFaint }} className="hidden sm:inline text-xs tracking-widest uppercase">Carte · Tarif · Millésime</span>
@@ -1115,6 +1126,7 @@ function App() {
   const [isCreatingProduit, setIsCreatingProduit] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
+  const [dataVersion, setDataVersion] = useState(null);
 
   // Chargement initial : d'abord produits.json, puis merge avec localStorage
   useEffect(() => {
@@ -1123,8 +1135,20 @@ function App() {
         const response = await fetch('./produits.json?t=' + Date.now());
         if (!response.ok) throw new Error('Impossible de charger produits.json');
         const data = await response.json();
-        const localProduits = storage.get('ctm:produits');
-        const localFournisseurs = storage.get('ctm:fournisseurs');
+
+        // Versioning : si le JSON a une nouvelle version, on écrase le catalogue local
+        // (mais on garde les cartes et alertes de l'utilisateur)
+        const dv = data.version || '1.0';
+        setDataVersion(dv);
+        const storedVersion = storage.get('ctm:version');
+        const versionChanged = storedVersion !== dv;
+        if (versionChanged) {
+          console.log(`CTM: catalogue mis à jour (${storedVersion || 'aucun'} → ${dv})`);
+          storage.set('ctm:version', dv);
+        }
+
+        const localProduits = versionChanged ? null : storage.get('ctm:produits');
+        const localFournisseurs = versionChanged ? null : storage.get('ctm:fournisseurs');
         const localCartes = storage.get('ctm:cartes');
         const localAlertes = storage.get('ctm:alertes');
         setEtablissements(data.etablissements || []);
@@ -1255,6 +1279,16 @@ function App() {
           onSave={handleSaveProduit} onRequestCreation={handleRequestCreation}
           onClose={() => { setEditingProduit(null); setIsCreatingProduit(false); }} />
       )}
+
+      {/* Badge de version en bas à gauche */}
+      <div className="no-print" style={{
+        position: 'fixed', bottom: 8, left: 8, zIndex: 20,
+        ...fontBody, color: tokens.inkFaint, fontSize: 10,
+        letterSpacing: '0.05em', pointerEvents: 'none',
+        textTransform: 'uppercase',
+      }}>
+        CTM v{APP_VERSION}{dataVersion ? ` · Cat. v${dataVersion}` : ''}
+      </div>
     </div>
   );
 }
