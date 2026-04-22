@@ -1278,8 +1278,9 @@ function CardEditor({ carte, produits, etablissements, user, onBack, onSave, onP
         {!isBientot && (
           <div className="flex gap-2">
             {canEdit && <Button variant="secondary" icon="save" onClick={handleSave}>Enregistrer</Button>}
-          <Button variant="primary" icon="eye" onClick={() => { handleSave(); onPreview(carte.id); }}>Aperçu PDF</Button>
-        </div>
+            <Button variant="primary" icon="eye" onClick={() => { handleSave(); onPreview(carte.id); }}>Aperçu PDF</Button>
+          </div>
+        )}
       </div>
       {isBientot ? (
         <Card className="p-12 text-center">
