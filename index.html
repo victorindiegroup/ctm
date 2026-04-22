@@ -1,0 +1,1266 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#F6F1E7" />
+  <title>CTM · Carte Tarif Millésime</title>
+
+  <!-- Fonts Google : Fraunces (serif) + Manrope (sans) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700&display=swap">
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- React 18 + Babel via CDN (pas de build nécessaire) -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    html, body, #root { min-height: 100vh; }
+    body {
+      margin: 0;
+      background: #F6F1E7;
+      font-family: Manrope, -apple-system, system-ui, sans-serif;
+      color: #1A1613;
+      -webkit-tap-highlight-color: transparent;
+    }
+    @media print {
+      .no-print { display: none !important; }
+      body { background: white !important; }
+    }
+    /* Empêche le zoom sur iOS quand focus sur input */
+    input, select, textarea { font-size: 16px; }
+  </style>
+</head>
+<body>
+  <div id="root">
+    <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:Fraunces,serif;color:#6B5E54;font-size:18px;">
+      Chargement de CTM…
+    </div>
+  </div>
+
+  <script type="text/babel" data-presets="react">
+// ==================== HOOKS & REACT GLOBALS ====================
+const { useState, useEffect, useMemo } = React;
+
+// ==================== ICÔNES (SVG Lucide inline) ====================
+const IconPaths = {
+  home: 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22V12h6v10',
+  wine: 'M8 22h8 M7 10h10 M12 15v7 M12 15a5 5 0 0 0 5-5V3H7v7a5 5 0 0 0 5 5Z',
+  truck: 'M14 18V6a2 2 0 0 0-2-2H2v13h2 M15 18H9 M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14v10h1 M7 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z M17 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z',
+  file: 'M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5z M14 2v6h6 M9 13h6 M9 17h3',
+  bell: 'M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9 M10.3 21a1.94 1.94 0 0 0 3.4 0',
+  plus: 'M5 12h14 M12 5v14',
+  search: 'm21 21-4.3-4.3 M10 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14Z',
+  filter: 'M22 3H2l8 9.46V19l4 2v-8.54z',
+  chevronRight: 'm9 18 6-6-6-6',
+  chevronDown: 'm6 9 6 6 6-6',
+  x: 'M18 6 6 18 M6 6l12 12',
+  edit: 'M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z',
+  trash: 'M3 6h18 M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6 m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2',
+  copy: 'M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2 M15 2H9a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1Z',
+  printer: 'M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2 M6 9V2h12v7 M6 14h12v8H6z',
+  alertCircle: 'M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10Z M12 8v4 M12 16h.01',
+  checkCircle: 'M21.801 10A10 10 0 1 1 17 3.335 m22 4L12 14.01l-3-3',
+  mapPin: 'M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0Z M12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z',
+  arrowLeft: 'm12 19-7-7 7-7 M19 12H5',
+  eye: 'M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0Z M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z',
+  upload: 'M12 3v12 m21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 m17 8-5-5-5 5',
+  menu: 'M4 6h16 M4 12h16 M4 18h16',
+  check: 'M20 6 9 17l-5-5',
+  save: 'M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7 M7 3v4a1 1 0 0 0 1 1h7',
+};
+
+function Icon({ name, size = 16, className = '', strokeWidth = 1.75, style = {} }) {
+  const d = IconPaths[name];
+  if (!d) return null;
+  // Les paths multiples sont séparés par " m " ou " M " — on split sur " M " au début d'un path
+  // Plus simple : on split par " M " qui apparaît en milieu de chaîne (après un autre path)
+  const parts = d.split(/ (?=M )/);
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24"
+         fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round"
+         strokeLinejoin="round" className={className} style={style}>
+      {parts.map((p, i) => <path key={i} d={p} />)}
+    </svg>
+  );
+}
+
+// ==================== CONSTANTES ====================
+const FORMATS_VERRE = ['6 cl', '12 cl'];
+const FORMATS_BOUTEILLE = [
+  { code: '1/2 BTL', label: '1/2 Bouteille' },
+  { code: 'BTL', label: 'Bouteille' },
+  { code: 'MAG', label: 'Magnum' },
+  { code: 'JERO', label: 'Jéroboam' },
+  { code: 'MATHU', label: 'Mathusalem' },
+  { code: 'NABU', label: 'Nabuchodonosor' },
+];
+const COULEURS = ['Champagne', 'Blanc', 'Rosé', 'Rouge', 'Vin Doux', 'Saké'];
+const REGIONS = ['Bourgogne', 'Provence', 'Loire', 'Rhône', 'Languedoc-Roussillon', 'Bordeaux', 'Beaujolais', 'Corse', 'Alsace', 'Champagne', 'Étrangers', 'Japon'];
+
+// ==================== STOCKAGE (localStorage wrapper) ====================
+const storage = {
+  get(key) {
+    try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; }
+    catch (e) { return null; }
+  },
+  set(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); return true; }
+    catch (e) { console.warn('Storage full:', e); return false; }
+  },
+};
+
+// ==================== UTILS ====================
+const formatEuro = (n) => {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n);
+};
+const calcCoef = (paHt, pvpTtc, tva = 0.20) => (!paHt || !pvpTtc) ? null : (pvpTtc / (1 + tva)) / paHt;
+const calcMarge = (paHt, pvpTtc, tva = 0.20) => {
+  if (!paHt || !pvpTtc) return null;
+  const pvpHt = pvpTtc / (1 + tva);
+  return (pvpHt - paHt) / pvpHt;
+};
+const formatNomProduit = (p) => {
+  const suffix = [];
+  if (p.parcelle) suffix.push(`« ${p.parcelle} »`);
+  if (p.cuvee) suffix.push(p.cuvee);
+  const ligne1 = suffix.length > 0 ? `${p.appellation} ${suffix.join(', ')}` : p.appellation;
+  return { ligne1, ligne2: p.domaine || '' };
+};
+
+// ==================== DESIGN TOKENS ====================
+const tokens = {
+  bg: '#F6F1E7', bgCard: '#FFFDF7', bgAlt: '#EFE8D9',
+  ink: '#1A1613', inkSoft: '#6B5E54', inkFaint: '#A39486',
+  border: '#E2D7C2', accent: '#722F37', accentSoft: '#9C4A52',
+  gold: '#9C7C3B', green: '#3D5A40', red: '#B4432C',
+};
+const fontDisplay = { fontFamily: 'Fraunces, Georgia, serif' };
+const fontBody = { fontFamily: 'Manrope, -apple-system, sans-serif' };
+
+// ==================== UI PRIMITIVES ====================
+function Badge({ children, variant = 'neutral' }) {
+  const variants = {
+    neutral: { bg: tokens.bgAlt, fg: tokens.inkSoft },
+    draft: { bg: '#F3E8CA', fg: '#8A6B1F' },
+    validated: { bg: '#D8E5D4', fg: tokens.green },
+  };
+  const v = variants[variant] || variants.neutral;
+  return <span style={{ ...fontBody, backgroundColor: v.bg, color: v.fg }} className="inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-full uppercase tracking-wider">{children}</span>;
+}
+function Button({ children, variant = 'primary', onClick, icon, disabled, className = '', size = 'md' }) {
+  const styles = {
+    primary: { bg: tokens.ink, fg: tokens.bg, hover: '#000' },
+    secondary: { bg: tokens.bgAlt, fg: tokens.ink, hover: tokens.border },
+    ghost: { bg: 'transparent', fg: tokens.inkSoft, hover: tokens.bgAlt },
+    accent: { bg: tokens.accent, fg: '#fff', hover: tokens.accentSoft },
+  };
+  const s = styles[variant];
+  const sizes = { sm: 'px-2.5 py-1.5 text-xs', md: 'px-4 py-2 text-sm' };
+  return (
+    <button onClick={onClick} disabled={disabled}
+      style={{ ...fontBody, backgroundColor: s.bg, color: s.fg }}
+      className={`inline-flex items-center gap-2 ${sizes[size]} rounded-lg font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${className}`}
+      onMouseEnter={(e) => !disabled && (e.currentTarget.style.backgroundColor = s.hover)}
+      onMouseLeave={(e) => !disabled && (e.currentTarget.style.backgroundColor = s.bg)}>
+      {icon && <Icon name={icon} size={size === 'sm' ? 14 : 16} />}
+      {children}
+    </button>
+  );
+}
+function Card({ children, className = '', onClick }) {
+  return <div onClick={onClick} style={{ backgroundColor: tokens.bgCard, borderColor: tokens.border }} className={`border rounded-xl ${onClick ? 'cursor-pointer hover:shadow-sm transition-shadow' : ''} ${className}`}>{children}</div>;
+}
+function Input({ value, onChange, placeholder, type = 'text', icon, disabled }) {
+  return (
+    <div className="relative">
+      {icon && <span className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: tokens.inkFaint }}><Icon name={icon} size={16} /></span>}
+      <input type={type} value={value ?? ''} disabled={disabled}
+        onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
+        style={{ ...fontBody, backgroundColor: tokens.bgCard, borderColor: tokens.border, color: tokens.ink }}
+        className={`w-full border rounded-lg py-2 ${icon ? 'pl-9' : 'pl-3'} pr-3 text-sm focus:outline-none disabled:opacity-50`} />
+    </div>
+  );
+}
+function Select({ value, onChange, options, placeholder }) {
+  return (
+    <select value={value ?? ''} onChange={(e) => onChange(e.target.value || null)}
+      style={{ ...fontBody, backgroundColor: tokens.bgCard, borderColor: tokens.border, color: tokens.ink }}
+      className="w-full border rounded-lg py-2 px-3 text-sm focus:outline-none">
+      <option value="">{placeholder || 'Tous'}</option>
+      {options.map((o) => <option key={o} value={o}>{o}</option>)}
+    </select>
+  );
+}
+function Toggle({ checked, onChange, label }) {
+  return (
+    <label className="flex items-center gap-2 cursor-pointer select-none">
+      <div onClick={() => onChange(!checked)}
+        style={{ backgroundColor: checked ? tokens.accent : tokens.border }}
+        className="relative w-9 h-5 rounded-full transition-colors">
+        <div style={{ backgroundColor: '#fff', transform: checked ? 'translateX(16px)' : 'translateX(2px)' }}
+          className="absolute top-0.5 w-4 h-4 rounded-full transition-transform shadow" />
+      </div>
+      <span style={{ ...fontBody, color: tokens.ink }} className="text-sm">{label}</span>
+    </label>
+  );
+}
+function Label({ children }) {
+  return <label style={{ ...fontBody, color: tokens.inkSoft }} className="text-[10px] uppercase tracking-wider block mb-1 font-medium">{children}</label>;
+}
+
+// ==================== MODAL ÉDITION PRODUIT ====================
+function ProduitEditModal({ produit, fournisseurs, onSave, onClose, user, onRequestCreation }) {
+  const isNew = !produit;
+  const [service, setService] = useState(produit?.service || 'Bouteille');
+  const [couleur, setCouleur] = useState(produit?.couleur || 'Rouge');
+  const [region, setRegion] = useState(produit?.region || '');
+  const [sousRegion, setSousRegion] = useState(produit?.sousRegion || '');
+  const [appellation, setAppellation] = useState(produit?.appellation || '');
+  const [domaine, setDomaine] = useState(produit?.domaine || '');
+  const [hasParcelle, setHasParcelle] = useState(!!produit?.parcelle);
+  const [parcelle, setParcelle] = useState(produit?.parcelle || '');
+  const [hasCuvee, setHasCuvee] = useState(!!produit?.cuvee);
+  const [cuvee, setCuvee] = useState(produit?.cuvee || '');
+  const [millesime, setMillesime] = useState(produit?.millesime || '');
+  const [format, setFormat] = useState(produit?.format || (service === 'Au Verre' ? '12 cl' : 'BTL'));
+  const [paHt, setPaHt] = useState(produit?.paHt || '');
+  const [fournisseur, setFournisseur] = useState(produit?.fournisseur || '');
+
+  useEffect(() => {
+    if (service === 'Au Verre' && !FORMATS_VERRE.includes(format)) setFormat('12 cl');
+    if (service === 'Bouteille' && FORMATS_VERRE.includes(format)) setFormat('BTL');
+  }, [service]);
+
+  const canSubmit = appellation.trim() && domaine.trim() && format && paHt;
+  const handleSave = () => {
+    const p = {
+      id: produit?.id || `p${Date.now()}${Math.random().toString(36).slice(2, 6)}`,
+      service, couleur,
+      region: region || null, sousRegion: sousRegion || null,
+      appellation: appellation.trim(), domaine: domaine.trim(),
+      parcelle: hasParcelle && parcelle.trim() ? parcelle.trim() : null,
+      cuvee: hasCuvee && cuvee.trim() ? cuvee.trim() : null,
+      millesime: millesime || null, format,
+      paHt: parseFloat(paHt), fournisseur: fournisseur || null,
+    };
+    if (isNew && user.role === 'editeur') onRequestCreation(p);
+    else onSave(p);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-end lg:items-center justify-center p-0 lg:p-4">
+      <div style={{ backgroundColor: tokens.bg }} className="w-full lg:max-w-2xl lg:rounded-xl max-h-[95vh] flex flex-col">
+        <div style={{ borderColor: tokens.border }} className="border-b p-4 flex items-center justify-between">
+          <h2 style={{ ...fontDisplay, color: tokens.ink }} className="text-xl font-semibold">
+            {isNew ? 'Nouveau produit' : 'Modifier le produit'}
+          </h2>
+          <button onClick={onClose}><Icon name="x" size={22} style={{ color: tokens.ink }} /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div>
+            <Label>Service</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {['Au Verre', 'Bouteille'].map((s) => (
+                <button key={s} onClick={() => setService(s)}
+                  style={{ ...fontBody, backgroundColor: service === s ? tokens.ink : tokens.bgCard, color: service === s ? tokens.bg : tokens.ink, borderColor: tokens.border }}
+                  className="border rounded-lg py-2 text-sm font-medium transition-colors">{s}</button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <Label>Couleur</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {COULEURS.map((c) => (
+                <button key={c} onClick={() => setCouleur(c)}
+                  style={{ ...fontBody, backgroundColor: couleur === c ? tokens.ink : tokens.bgCard, color: couleur === c ? tokens.bg : tokens.ink, borderColor: tokens.border }}
+                  className="border rounded-lg py-2 text-sm transition-colors">{c}</button>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label>Région</Label><Select value={region} onChange={(v) => setRegion(v || '')} options={REGIONS} placeholder="Aucune" /></div>
+            <div><Label>Sous-région</Label><Input value={sousRegion} onChange={setSousRegion} placeholder="ex: Côte de Beaune" /></div>
+          </div>
+          <div><Label>Appellation *</Label><Input value={appellation} onChange={setAppellation} placeholder="ex: Pommard 1er Cru" /></div>
+          <div><Label>Domaine / Producteur *</Label><Input value={domaine} onChange={setDomaine} placeholder="ex: Domaine Georges Joillot" /></div>
+          <div style={{ backgroundColor: tokens.bgCard, borderColor: tokens.border }} className="border rounded-lg p-3">
+            <Toggle checked={hasParcelle} onChange={setHasParcelle} label="Ce vin a une parcelle / lieu-dit" />
+            {hasParcelle && <div className="mt-2"><Input value={parcelle} onChange={setParcelle} placeholder='ex: Les Charmots' /></div>}
+          </div>
+          <div style={{ backgroundColor: tokens.bgCard, borderColor: tokens.border }} className="border rounded-lg p-3">
+            <Toggle checked={hasCuvee} onChange={setHasCuvee} label="Ce vin a une cuvée nommée" />
+            {hasCuvee && <div className="mt-2"><Input value={cuvee} onChange={setCuvee} placeholder="ex: Cuvée Frisson d'Avril" /></div>}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Format *</Label>
+              <select value={format} onChange={(e) => setFormat(e.target.value)}
+                style={{ ...fontBody, backgroundColor: tokens.bgCard, borderColor: tokens.border, color: tokens.ink }}
+                className="w-full border rounded-lg py-2 px-3 text-sm focus:outline-none">
+                {service === 'Au Verre'
+                  ? FORMATS_VERRE.map((f) => <option key={f} value={f}>{f}</option>)
+                  : FORMATS_BOUTEILLE.map((f) => <option key={f.code} value={f.code}>{f.label} ({f.code})</option>)}
+              </select>
+            </div>
+            <div><Label>Millésime</Label><Input value={millesime} onChange={setMillesime} placeholder="ex: 2022 ou NM" /></div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label>Prix d'achat HT *</Label><Input value={paHt} onChange={setPaHt} type="number" placeholder="ex: 28.06" /></div>
+            <div><Label>Fournisseur</Label><Select value={fournisseur} onChange={(v) => setFournisseur(v || '')} options={fournisseurs} placeholder="Sélectionner" /></div>
+          </div>
+          <div style={{ backgroundColor: tokens.bgAlt, borderColor: tokens.border }} className="border rounded-lg p-3">
+            <Label>Aperçu sur la carte</Label>
+            <div style={{ ...fontDisplay, color: tokens.ink }} className="font-semibold">
+              {formatNomProduit({ appellation: appellation || '...', parcelle: hasParcelle ? parcelle : null, cuvee: hasCuvee ? cuvee : null }).ligne1}
+            </div>
+            <div style={{ ...fontBody, color: tokens.inkSoft }} className="text-sm">
+              {domaine || '...'}{millesime && ` — ${millesime}`}{format && ` · ${format}`}
+            </div>
+          </div>
+          {isNew && user.role === 'editeur' && (
+            <div style={{ backgroundColor: '#F3E8CA', borderColor: '#E5D59C' }} className="border rounded-lg p-3">
+              <p style={{ ...fontBody, color: '#8A6B1F' }} className="text-xs">
+                <span style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 4 }}><Icon name="alertCircle" size={12} /></span>
+                Votre demande sera envoyée à Victor pour validation.
+              </p>
+            </div>
+          )}
+        </div>
+        <div style={{ borderColor: tokens.border, backgroundColor: tokens.bgCard }} className="border-t p-4 flex justify-end gap-2">
+          <Button variant="ghost" onClick={onClose}>Annuler</Button>
+          <Button variant="primary" icon="save" onClick={handleSave} disabled={!canSubmit}>
+            {isNew ? (user.role === 'editeur' ? 'Envoyer la demande' : 'Créer') : 'Enregistrer'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==================== HEADER / SIDEBAR ====================
+function Header({ user, onUserChange, onToggleSidebar, utilisateurs }) {
+  return (
+    <header style={{ backgroundColor: tokens.bgCard, borderColor: tokens.border }} className="border-b px-4 lg:px-8 py-3 flex items-center justify-between sticky top-0 z-30">
+      <div className="flex items-center gap-3">
+        <button className="lg:hidden" onClick={onToggleSidebar}>
+          <Icon name="menu" size={22} style={{ color: tokens.ink }} />
+        </button>
+        <div className="flex items-baseline gap-2">
+          <span style={{ ...fontDisplay, color: tokens.ink }} className="text-2xl font-semibold tracking-tight">CTM</span>
+          <span style={{ ...fontBody, color: tokens.inkFaint }} className="hidden sm:inline text-xs tracking-widest uppercase">Carte · Tarif · Millésime</span>
+        </div>
+      </div>
+      <select value={user.id} onChange={(e) => onUserChange(utilisateurs.find((u) => u.id === e.target.value))}
+        style={{ ...fontBody, backgroundColor: tokens.bgAlt, color: tokens.ink, borderColor: tokens.border }}
+        className="border text-sm rounded-lg px-3 py-1.5">
+        {utilisateurs.map((u) => <option key={u.id} value={u.id}>{u.nom} · {u.libelle}</option>)}
+      </select>
+    </header>
+  );
+}
+
+function Sidebar({ view, setView, isMobile, isOpen, onClose, alertCount }) {
+  const items = [
+    { id: 'home', label: 'Accueil', icon: 'home' },
+    { id: 'catalog', label: 'Catalogue vins', icon: 'wine' },
+    { id: 'suppliers', label: 'Mercuriales', icon: 'truck' },
+    { id: 'cards', label: 'Cartes', icon: 'file' },
+    { id: 'alerts', label: 'Alertes', icon: 'bell', badge: alertCount },
+  ];
+  const content = (
+    <nav className="flex flex-col gap-1 p-4">
+      {items.map((item) => {
+        const active = view === item.id;
+        return (
+          <button key={item.id} onClick={() => { setView(item.id); if (isMobile) onClose(); }}
+            style={{ ...fontBody, backgroundColor: active ? tokens.ink : 'transparent', color: active ? tokens.bg : tokens.ink }}
+            className="flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors">
+            <span className="flex items-center gap-3"><Icon name={item.icon} size={18} />{item.label}</span>
+            {item.badge > 0 && (
+              <span style={{ backgroundColor: active ? tokens.bg : tokens.accent, color: active ? tokens.ink : '#fff' }}
+                className="text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[20px] text-center">{item.badge}</span>
+            )}
+          </button>
+        );
+      })}
+    </nav>
+  );
+
+  if (isMobile) {
+    if (!isOpen) return null;
+    return (
+      <React.Fragment>
+        <div className="fixed inset-0 bg-black/40 z-40 lg:hidden" onClick={onClose} />
+        <aside style={{ backgroundColor: tokens.bg, borderColor: tokens.border }}
+          className="fixed left-0 top-0 bottom-0 w-72 border-r z-50 lg:hidden">
+          <div style={{ borderColor: tokens.border }} className="border-b px-4 py-4 flex items-center justify-between">
+            <span style={{ ...fontDisplay }} className="text-xl font-semibold">CTM</span>
+            <button onClick={onClose}><Icon name="x" size={22} /></button>
+          </div>
+          {content}
+        </aside>
+      </React.Fragment>
+    );
+  }
+  return (
+    <aside style={{ backgroundColor: tokens.bg, borderColor: tokens.border }} className="hidden lg:block w-64 border-r flex-shrink-0">
+      {content}
+    </aside>
+  );
+}
+
+// ==================== PAGES (partie 1) ====================
+function HomePage({ user, produits, cartes, alertes, etablissements, onOpenCard, onCreateCard }) {
+  const alertesVisibles = user.role === 'admin' ? alertes.filter((a) => !a.lue) : [];
+  return (
+    <div className="p-4 lg:p-8 max-w-7xl mx-auto">
+      <div className="mb-8">
+        <h1 style={{ ...fontDisplay, color: tokens.ink }} className="text-3xl lg:text-4xl font-semibold tracking-tight">Bonjour {user.nom}.</h1>
+        <p style={{ ...fontBody, color: tokens.inkSoft }} className="mt-1 text-sm">
+          {user.libelle} · {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+        </p>
+      </div>
+      {alertesVisibles.length > 0 && (
+        <Card className="p-4 mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <span style={{ color: tokens.accent }}><Icon name="alertCircle" size={16} /></span>
+            <h3 style={{ ...fontDisplay, color: tokens.ink }} className="font-semibold">
+              {alertesVisibles.length} alerte{alertesVisibles.length > 1 ? 's' : ''} en attente
+            </h3>
+          </div>
+          <ul className="space-y-2">
+            {alertesVisibles.slice(0, 3).map((a) => (
+              <li key={a.id} style={{ ...fontBody, color: tokens.inkSoft }} className="text-sm flex items-start gap-2">
+                <Icon name="chevronRight" size={14} className="mt-0.5 flex-shrink-0" />
+                <span>{a.message}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+      <div className="grid grid-cols-3 gap-3 lg:gap-4 mb-8">
+        <Card className="p-4">
+          <div style={{ ...fontBody, color: tokens.inkFaint }} className="text-xs uppercase tracking-wider mb-1">Produits</div>
+          <div style={{ ...fontDisplay, color: tokens.ink }} className="text-2xl lg:text-3xl font-semibold">{produits.length}</div>
+        </Card>
+        <Card className="p-4">
+          <div style={{ ...fontBody, color: tokens.inkFaint }} className="text-xs uppercase tracking-wider mb-1">Cartes</div>
+          <div style={{ ...fontDisplay, color: tokens.ink }} className="text-2xl lg:text-3xl font-semibold">{cartes.length}</div>
+        </Card>
+        <Card className="p-4">
+          <div style={{ ...fontBody, color: tokens.inkFaint }} className="text-xs uppercase tracking-wider mb-1">Établissements</div>
+          <div style={{ ...fontDisplay, color: tokens.ink }} className="text-2xl lg:text-3xl font-semibold">{etablissements.filter(e => !e.stockOnly).length}</div>
+        </Card>
+      </div>
+      <h2 style={{ ...fontDisplay, color: tokens.ink }} className="text-xl font-semibold mb-4">Établissements</h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
+        {etablissements.filter(e => !e.stockOnly).map((etab) => {
+          const carte = cartes.find((c) => c.etablissementId === etab.id && c.annee === 2026);
+          return (
+            <Card key={etab.id} className="p-4 lg:p-5" onClick={() => {
+              if (carte) onOpenCard(carte.id);
+              else onCreateCard(etab.id);
+            }}>
+              <div className="flex items-start justify-between gap-2 mb-3">
+                <div>
+                  <h3 style={{ ...fontDisplay, color: tokens.ink }} className="text-lg font-semibold leading-tight">{etab.nom}</h3>
+                  <div style={{ ...fontBody, color: tokens.inkSoft }} className="text-xs flex items-center gap-1 mt-0.5">
+                    <Icon name="mapPin" size={12} /> {etab.lieu}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1 items-end">
+                  <Badge>{etab.saison}</Badge>
+                  {etab.tva === 0 && <Badge>TVA 0%</Badge>}
+                </div>
+              </div>
+              <div className="flex items-center justify-between pt-3 border-t" style={{ borderColor: tokens.border }}>
+                {carte ? (
+                  <React.Fragment>
+                    <Badge variant={carte.statut === 'validee' ? 'validated' : 'draft'}>
+                      {carte.statut === 'validee' ? '✓ Validée' : 'Brouillon'}
+                    </Badge>
+                    <span style={{ ...fontBody, color: tokens.inkFaint }} className="text-xs">{carte.lignes?.length || 0} ref.</span>
+                  </React.Fragment>
+                ) : (
+                  <span style={{ ...fontBody, color: tokens.inkFaint }} className="text-xs italic">Aucune carte · cliquer pour créer</span>
+                )}
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ProduitCard({ produit, onEdit }) {
+  const { ligne1, ligne2 } = formatNomProduit(produit);
+  return (
+    <Card className="p-4">
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <div className="flex-1 min-w-0">
+          <div style={{ ...fontBody, color: tokens.inkFaint }} className="text-[10px] uppercase tracking-wider truncate">
+            {produit.region}{produit.sousRegion ? ` · ${produit.sousRegion}` : ''}
+          </div>
+          <h3 style={{ ...fontDisplay, color: tokens.ink }} className="font-semibold leading-tight mt-0.5">{ligne1}</h3>
+          {ligne2 && <div style={{ ...fontBody, color: tokens.inkSoft }} className="text-sm mt-0.5">{ligne2}</div>}
+        </div>
+        <div className="flex items-center gap-1">
+          <Badge>{produit.couleur}</Badge>
+          {onEdit && (
+            <button onClick={onEdit} className="p-1.5 rounded-lg hover:bg-black/5" title="Modifier">
+              <Icon name="edit" size={14} style={{ color: tokens.inkSoft }} />
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs" style={{ ...fontBody, color: tokens.inkSoft }}>
+        <span>{produit.format}</span>
+        {produit.millesime && <React.Fragment><span style={{ color: tokens.inkFaint }}>·</span><span>{produit.millesime}</span></React.Fragment>}
+      </div>
+      <div className="mt-3 pt-3 border-t flex items-center justify-between" style={{ borderColor: tokens.border }}>
+        <div>
+          <div style={{ ...fontBody, color: tokens.inkFaint }} className="text-[10px] uppercase tracking-wider">Prix achat HT</div>
+          <div style={{ ...fontDisplay, color: tokens.ink }} className="font-semibold">{formatEuro(produit.paHt)}</div>
+        </div>
+        <div style={{ ...fontBody, color: tokens.inkSoft }} className="text-xs text-right">
+          {produit.fournisseur || <span style={{ color: tokens.red }}>Sans fournisseur</span>}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function CatalogPage({ produits, fournisseurs, user, onEditProduit, onAddProduit }) {
+  const [search, setSearch] = useState('');
+  const [fService, setFService] = useState(null);
+  const [fCouleur, setFCouleur] = useState(null);
+  const [fRegion, setFRegion] = useState(null);
+  const [fFournisseur, setFFournisseur] = useState(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const regions = useMemo(() => [...new Set(produits.map((p) => p.region).filter(Boolean))].sort(), [produits]);
+  const filtered = useMemo(() => produits.filter((p) => {
+    if (search) {
+      const s = search.toLowerCase();
+      const searchable = [p.appellation, p.domaine, p.parcelle, p.cuvee, p.fournisseur].filter(Boolean).join(' ').toLowerCase();
+      if (!searchable.includes(s)) return false;
+    }
+    if (fService && p.service !== fService) return false;
+    if (fCouleur && p.couleur !== fCouleur) return false;
+    if (fRegion && p.region !== fRegion) return false;
+    if (fFournisseur && p.fournisseur !== fFournisseur) return false;
+    return true;
+  }), [produits, search, fService, fCouleur, fRegion, fFournisseur]);
+  return (
+    <div className="p-4 lg:p-8 max-w-7xl mx-auto">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 style={{ ...fontDisplay, color: tokens.ink }} className="text-2xl lg:text-3xl font-semibold">Catalogue vins</h1>
+          <p style={{ ...fontBody, color: tokens.inkSoft }} className="text-sm mt-1">
+            {filtered.length} réf.{filtered.length !== produits.length && ` sur ${produits.length}`}
+          </p>
+        </div>
+        {user.role !== 'lecteur' && (
+          <Button variant="accent" icon="plus" onClick={onAddProduit}><span className="hidden sm:inline">Nouveau produit</span></Button>
+        )}
+      </div>
+      <div className="mb-4 flex gap-2">
+        <div className="flex-1"><Input value={search} onChange={setSearch} placeholder="Rechercher (appellation, domaine, parcelle, cuvée...)" icon="search" /></div>
+        <Button variant="secondary" icon="filter" onClick={() => setShowFilters(!showFilters)}><span className="hidden sm:inline">Filtres</span></Button>
+      </div>
+      {showFilters && (
+        <Card className="p-4 mb-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div><Label>Service</Label><Select value={fService} onChange={setFService} options={['Au Verre', 'Bouteille']} /></div>
+            <div><Label>Couleur</Label><Select value={fCouleur} onChange={setFCouleur} options={COULEURS} /></div>
+            <div><Label>Région</Label><Select value={fRegion} onChange={setFRegion} options={regions} /></div>
+            <div><Label>Fournisseur</Label><Select value={fFournisseur} onChange={setFFournisseur} options={fournisseurs} /></div>
+          </div>
+          {(fService || fCouleur || fRegion || fFournisseur) && (
+            <div className="mt-3">
+              <Button variant="ghost" onClick={() => { setFService(null); setFCouleur(null); setFRegion(null); setFFournisseur(null); }}>Réinitialiser</Button>
+            </div>
+          )}
+        </Card>
+      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+        {filtered.map((p) => <ProduitCard key={p.id} produit={p} onEdit={user.role !== 'lecteur' ? () => onEditProduit(p) : null} />)}
+      </div>
+      {filtered.length === 0 && <div className="text-center py-16" style={{ ...fontBody, color: tokens.inkFaint }}>Aucun produit</div>}
+    </div>
+  );
+}
+
+function SuppliersPage({ produits, fournisseurs, user, onEditProduit }) {
+  const [selected, setSelected] = useState(null);
+  const stats = useMemo(() => {
+    const map = {};
+    fournisseurs.forEach((f) => { map[f] = 0; });
+    produits.forEach((p) => { if (p.fournisseur && map[p.fournisseur] !== undefined) map[p.fournisseur]++; });
+    return map;
+  }, [produits, fournisseurs]);
+  if (selected) {
+    const pf = produits.filter((p) => p.fournisseur === selected);
+    return (
+      <div className="p-4 lg:p-8 max-w-7xl mx-auto">
+        <Button variant="ghost" icon="arrowLeft" onClick={() => setSelected(null)} className="mb-4">Retour</Button>
+        <h1 style={{ ...fontDisplay, color: tokens.ink }} className="text-2xl lg:text-3xl font-semibold">{selected}</h1>
+        <p style={{ ...fontBody, color: tokens.inkSoft }} className="text-sm mt-1 mb-6">{pf.length} référence{pf.length > 1 ? 's' : ''} · Mercuriale 2026</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          {pf.map((p) => <ProduitCard key={p.id} produit={p} onEdit={user.role !== 'lecteur' ? () => onEditProduit(p) : null} />)}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="p-4 lg:p-8 max-w-7xl mx-auto">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 style={{ ...fontDisplay, color: tokens.ink }} className="text-2xl lg:text-3xl font-semibold">Mercuriales</h1>
+          <p style={{ ...fontBody, color: tokens.inkSoft }} className="text-sm mt-1">{fournisseurs.length} fournisseurs</p>
+        </div>
+        {user.role !== 'lecteur' && (<Button variant="secondary" icon="upload"><span className="hidden sm:inline">Importer</span></Button>)}
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+        {fournisseurs.slice().sort().map((f) => (
+          <Card key={f} className="p-4" onClick={() => setSelected(f)}>
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <h3 style={{ ...fontDisplay, color: tokens.ink }} className="font-semibold leading-tight">{f}</h3>
+              <Icon name="chevronRight" size={16} style={{ color: tokens.inkFaint }} />
+            </div>
+            <div className="flex items-center justify-between text-xs" style={{ ...fontBody, color: tokens.inkSoft }}>
+              <span>{stats[f] || 0} réf.</span>
+              <span>Mercuriale 2026</span>
+            </div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CardsPage({ cartes, etablissements, user, onOpenCard, onCreateCard }) {
+  return (
+    <div className="p-4 lg:p-8 max-w-7xl mx-auto">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 style={{ ...fontDisplay, color: tokens.ink }} className="text-2xl lg:text-3xl font-semibold">Cartes</h1>
+          <p style={{ ...fontBody, color: tokens.inkSoft }} className="text-sm mt-1">{cartes.length} carte{cartes.length > 1 ? 's' : ''}</p>
+        </div>
+        {user.role !== 'lecteur' && (
+          <Button variant="accent" icon="plus" onClick={() => onCreateCard(null)}><span className="hidden sm:inline">Nouvelle carte</span></Button>
+        )}
+      </div>
+      {cartes.length === 0 ? (
+        <Card className="p-8 text-center">
+          <div className="flex justify-center mb-3"><Icon name="file" size={32} style={{ color: tokens.inkFaint }} /></div>
+          <p style={{ ...fontBody, color: tokens.inkSoft }}>Aucune carte créée.</p>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {cartes.map((c) => {
+            const etab = etablissements.find((e) => e.id === c.etablissementId);
+            return (
+              <Card key={c.id} className="p-4" onClick={() => onOpenCard(c.id)}>
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div>
+                    <h3 style={{ ...fontDisplay, color: tokens.ink }} className="font-semibold leading-tight">{etab?.nom} · {c.annee}</h3>
+                    <p style={{ ...fontBody, color: tokens.inkSoft }} className="text-xs mt-0.5">{etab?.lieu}</p>
+                  </div>
+                  <Badge variant={c.statut === 'validee' ? 'validated' : 'draft'}>
+                    {c.statut === 'validee' ? '✓ Validée' : 'Brouillon'}
+                  </Badge>
+                </div>
+                <div className="pt-3 border-t text-xs" style={{ ...fontBody, color: tokens.inkFaint, borderColor: tokens.border }}>
+                  {c.lignes?.length || 0} références
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==================== ÉDITEUR DE CARTE ====================
+function LigneRow({ ligne, canEdit, onUpdate, onRemove, onEditProduit, tva }) {
+  const p = ligne.produit;
+  const coef = calcCoef(p.paHt, ligne.pvpTtc, tva);
+  const marge = calcMarge(p.paHt, ligne.pvpTtc, tva);
+  const { ligne1, ligne2 } = formatNomProduit(p);
+  return (
+    <div className="p-3 lg:p-4 flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-4" style={{ borderBottom: `1px solid ${tokens.border}` }}>
+      <div className="flex-1 min-w-0">
+        <div style={{ ...fontBody, color: tokens.inkFaint }} className="text-[10px] uppercase tracking-wider truncate">
+          {p.region}{p.sousRegion ? ` · ${p.sousRegion}` : ''}
+        </div>
+        <div style={{ ...fontDisplay, color: tokens.ink }} className="font-semibold leading-tight">{ligne1}</div>
+        {ligne2 && <div style={{ ...fontBody, color: tokens.inkSoft }} className="text-sm">{ligne2}</div>}
+        <div className="flex items-center gap-2 text-xs mt-0.5 flex-wrap" style={{ ...fontBody, color: tokens.inkSoft }}>
+          <span>{p.format}</span>
+          {p.millesime && <React.Fragment><span>·</span><span>{p.millesime}</span></React.Fragment>}
+          <span>·</span>
+          <span>PA {formatEuro(p.paHt)}</span>
+        </div>
+      </div>
+      <div className="flex items-center gap-3 flex-wrap">
+        <div>
+          <Label>PVP TTC</Label>
+          <input type="number" step="1" value={ligne.pvpTtc || ''} disabled={!canEdit}
+            onChange={(e) => onUpdate('pvpTtc', e.target.value ? parseFloat(e.target.value) : null)}
+            style={{ ...fontBody, backgroundColor: tokens.bg, borderColor: tokens.border, color: tokens.ink, width: '90px' }}
+            className="border rounded-md px-2 py-1 text-sm" />
+        </div>
+        <div>
+          <Label>PVP N-1</Label>
+          <input type="number" step="1" value={ligne.pvpTtcN1 || ''} disabled={!canEdit}
+            onChange={(e) => onUpdate('pvpTtcN1', e.target.value ? parseFloat(e.target.value) : null)}
+            style={{ ...fontBody, backgroundColor: tokens.bg, borderColor: tokens.border, color: tokens.inkSoft, width: '90px' }}
+            className="border rounded-md px-2 py-1 text-sm" />
+        </div>
+        <div className="text-right min-w-[70px]">
+          <Label>Coef</Label>
+          <div style={{ ...fontDisplay, color: coef && coef < 3 ? tokens.red : tokens.ink }} className="font-semibold">
+            {coef ? `×${coef.toFixed(2)}` : '—'}
+          </div>
+        </div>
+        <div className="text-right min-w-[60px] hidden sm:block">
+          <Label>Marge</Label>
+          <div style={{ ...fontBody, color: tokens.inkSoft }} className="text-sm">{marge ? `${(marge * 100).toFixed(0)}%` : '—'}</div>
+        </div>
+        {canEdit && (
+          <div className="flex gap-1">
+            <button onClick={onEditProduit} className="p-2 rounded-lg hover:bg-black/5 transition-colors" title="Modifier">
+              <Icon name="edit" size={16} style={{ color: tokens.inkSoft }} />
+            </button>
+            <button onClick={onRemove} className="p-2 rounded-lg hover:bg-red-50 transition-colors" title="Retirer">
+              <Icon name="trash" size={16} style={{ color: tokens.red }} />
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ProduitPicker({ produits, onSelect, onClose, preFilter, alreadyAdded }) {
+  const [search, setSearch] = useState('');
+  const [fCouleur, setFCouleur] = useState(preFilter?.couleur || null);
+  const [fService, setFService] = useState(preFilter?.service || null);
+  const filtered = useMemo(() => produits.filter((p) => {
+    if (alreadyAdded.includes(p.id)) return false;
+    if (search) {
+      const s = search.toLowerCase();
+      const searchable = [p.appellation, p.domaine, p.parcelle, p.cuvee].filter(Boolean).join(' ').toLowerCase();
+      if (!searchable.includes(s)) return false;
+    }
+    if (fCouleur && p.couleur !== fCouleur) return false;
+    if (fService && p.service !== fService) return false;
+    return true;
+  }), [produits, search, fCouleur, fService, alreadyAdded]);
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-end lg:items-center justify-center p-0 lg:p-4">
+      <div style={{ backgroundColor: tokens.bg }} className="w-full lg:max-w-3xl lg:rounded-xl max-h-[90vh] flex flex-col">
+        <div style={{ borderColor: tokens.border }} className="border-b p-4 flex items-center justify-between">
+          <h2 style={{ ...fontDisplay, color: tokens.ink }} className="text-xl font-semibold">Ajouter un vin</h2>
+          <button onClick={onClose}><Icon name="x" size={22} /></button>
+        </div>
+        <div className="p-4 space-y-3">
+          <Input value={search} onChange={setSearch} placeholder="Rechercher..." icon="search" />
+          <div className="grid grid-cols-2 gap-2">
+            <Select value={fService} onChange={setFService} options={['Au Verre', 'Bouteille']} placeholder="Service" />
+            <Select value={fCouleur} onChange={setFCouleur} options={COULEURS} placeholder="Couleur" />
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
+          {filtered.map((p) => {
+            const { ligne1, ligne2 } = formatNomProduit(p);
+            return (
+              <Card key={p.id} className="p-3" onClick={() => onSelect(p)}>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div style={{ ...fontBody, color: tokens.inkFaint }} className="text-[10px] uppercase tracking-wider truncate">
+                      {p.region}{p.sousRegion ? ` · ${p.sousRegion}` : ''}
+                    </div>
+                    <div style={{ ...fontDisplay, color: tokens.ink }} className="font-semibold leading-tight truncate">{ligne1}</div>
+                    {ligne2 && <div style={{ ...fontBody, color: tokens.inkSoft }} className="text-sm truncate">{ligne2}</div>}
+                    <div className="flex items-center gap-2 text-xs mt-0.5" style={{ ...fontBody, color: tokens.inkSoft }}>
+                      <span>{p.format}</span>
+                      {p.millesime && <React.Fragment><span>·</span><span>{p.millesime}</span></React.Fragment>}
+                      <span>·</span>
+                      <span>{formatEuro(p.paHt)}</span>
+                    </div>
+                  </div>
+                  <Icon name="plus" size={18} style={{ color: tokens.ink }} />
+                </div>
+              </Card>
+            );
+          })}
+          {filtered.length === 0 && <p className="text-center py-8" style={{ ...fontBody, color: tokens.inkFaint }}>Aucun produit</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CardEditor({ carte, produits, etablissements, user, onBack, onSave, onPreview, onEditProduit }) {
+  const [lignes, setLignes] = useState(carte.lignes || []);
+  const [showPicker, setShowPicker] = useState(false);
+  const [pickerSection, setPickerSection] = useState(null);
+  const [collapsed, setCollapsed] = useState({});
+  const etab = etablissements.find((e) => e.id === carte.etablissementId);
+  const canEdit = user.role !== 'lecteur';
+  const tva = etab?.tva ?? 0.20;
+  const sections = useMemo(() => {
+    const map = {};
+    lignes.forEach((l) => {
+      const p = produits.find((pr) => pr.id === l.produitId);
+      if (!p) return;
+      const key = `${p.service}__${p.couleur}`;
+      if (!map[key]) map[key] = { service: p.service, couleur: p.couleur, groupes: {} };
+      const groupKey = p.service === 'Au Verre' ? p.format : '_all_';
+      if (!map[key].groupes[groupKey]) map[key].groupes[groupKey] = [];
+      map[key].groupes[groupKey].push({ ...l, produit: p });
+    });
+    const orderCouleur = ['Champagne', 'Blanc', 'Rosé', 'Rouge', 'Vin Doux', 'Saké'];
+    const orderService = ['Au Verre', 'Bouteille'];
+    return Object.values(map).sort((a, b) => {
+      const sA = orderService.indexOf(a.service);
+      const sB = orderService.indexOf(b.service);
+      if (sA !== sB) return sA - sB;
+      return orderCouleur.indexOf(a.couleur) - orderCouleur.indexOf(b.couleur);
+    });
+  }, [lignes, produits]);
+  const handleAddProduit = (produit) => {
+    setLignes([...lignes, { id: `l${Date.now()}${Math.random().toString(36).slice(2, 6)}`, produitId: produit.id, pvpTtc: null, pvpTtcN1: null }]);
+    setShowPicker(false);
+  };
+  const handleUpdateLigne = (id, field, value) => setLignes(lignes.map((l) => l.id === id ? { ...l, [field]: value } : l));
+  const handleRemoveLigne = (id) => setLignes(lignes.filter((l) => l.id !== id));
+  const handleSave = () => onSave({ ...carte, lignes, dateModif: Date.now() });
+  return (
+    <div className="p-4 lg:p-8 max-w-7xl mx-auto">
+      <Button variant="ghost" icon="arrowLeft" onClick={onBack} className="mb-4">Retour</Button>
+      <div className="flex items-start justify-between flex-wrap gap-3 mb-6">
+        <div>
+          <h1 style={{ ...fontDisplay, color: tokens.ink }} className="text-2xl lg:text-3xl font-semibold">{etab?.nom} · {carte.annee}</h1>
+          <p style={{ ...fontBody, color: tokens.inkSoft }} className="text-sm mt-1 flex items-center gap-2 flex-wrap">
+            <Icon name="mapPin" size={12} /> {etab?.lieu} ·
+            <Badge variant={carte.statut === 'validee' ? 'validated' : 'draft'}>
+              {carte.statut === 'validee' ? '✓ Validée' : 'Brouillon'}
+            </Badge>
+            <Badge>TVA {(tva * 100).toFixed(tva === 0 ? 0 : 1)}%</Badge>
+          </p>
+        </div>
+        <div className="flex gap-2">
+          {canEdit && <Button variant="secondary" icon="save" onClick={handleSave}>Enregistrer</Button>}
+          <Button variant="primary" icon="eye" onClick={() => { handleSave(); onPreview(carte.id); }}>Aperçu PDF</Button>
+        </div>
+      </div>
+      {sections.length === 0 ? (
+        <Card className="p-12 text-center">
+          <div className="flex justify-center mb-3"><Icon name="wine" size={36} style={{ color: tokens.inkFaint }} /></div>
+          <p style={{ ...fontBody, color: tokens.inkSoft }} className="mb-4">Cette carte est vide.</p>
+          {canEdit && <Button variant="accent" icon="plus" onClick={() => { setPickerSection(null); setShowPicker(true); }}>Ajouter un vin</Button>}
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {sections.map((sec) => {
+            const key = `${sec.service}__${sec.couleur}`;
+            const isCollapsed = collapsed[key];
+            const totalItems = Object.values(sec.groupes).reduce((sum, arr) => sum + arr.length, 0);
+            return (
+              <Card key={key} className="overflow-hidden">
+                <button onClick={() => setCollapsed({ ...collapsed, [key]: !isCollapsed })}
+                  className="w-full p-4 flex items-center justify-between hover:bg-black/5 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <Icon name={isCollapsed ? 'chevronRight' : 'chevronDown'} size={16} />
+                    <span style={{ ...fontBody, color: tokens.inkFaint }} className="text-xs uppercase tracking-widest">{sec.service}</span>
+                    <span style={{ ...fontDisplay, color: tokens.ink }} className="font-semibold">{sec.couleur}</span>
+                    <Badge>{totalItems}</Badge>
+                  </div>
+                </button>
+                {!isCollapsed && (
+                  <div style={{ borderColor: tokens.border }} className="border-t">
+                    {sec.service === 'Au Verre' ? (
+                      FORMATS_VERRE.filter((f) => sec.groupes[f]?.length > 0).map((fmt) => (
+                        <div key={fmt}>
+                          <div style={{ backgroundColor: tokens.bgAlt, borderColor: tokens.border }} className="px-4 py-2 border-b">
+                            <span style={{ ...fontBody, color: tokens.inkSoft }} className="text-xs uppercase tracking-wider font-semibold">Format {fmt}</span>
+                          </div>
+                          {sec.groupes[fmt].map((item) => (
+                            <LigneRow key={item.id} ligne={item} canEdit={canEdit} tva={tva}
+                              onUpdate={(f, v) => handleUpdateLigne(item.id, f, v)}
+                              onRemove={() => handleRemoveLigne(item.id)}
+                              onEditProduit={() => onEditProduit(item.produit)} />
+                          ))}
+                        </div>
+                      ))
+                    ) : (
+                      (sec.groupes['_all_'] || []).map((item) => (
+                        <LigneRow key={item.id} ligne={item} canEdit={canEdit} tva={tva}
+                          onUpdate={(f, v) => handleUpdateLigne(item.id, f, v)}
+                          onRemove={() => handleRemoveLigne(item.id)}
+                          onEditProduit={() => onEditProduit(item.produit)} />
+                      ))
+                    )}
+                    {canEdit && (
+                      <div className="p-3" style={{ borderTop: `1px solid ${tokens.border}` }}>
+                        <Button variant="ghost" icon="plus" onClick={() => { setPickerSection(sec); setShowPicker(true); }}>
+                          Ajouter dans {sec.couleur} ({sec.service})
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </Card>
+            );
+          })}
+          {canEdit && (
+            <div className="pt-2">
+              <Button variant="accent" icon="plus" onClick={() => { setPickerSection(null); setShowPicker(true); }}>
+                Ajouter un vin (autre section)
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+      {showPicker && (
+        <ProduitPicker produits={produits} onSelect={handleAddProduit} onClose={() => setShowPicker(false)}
+          preFilter={pickerSection} alreadyAdded={lignes.map((l) => l.produitId)} />
+      )}
+    </div>
+  );
+}
+
+// ==================== APERÇU / PDF ====================
+function LigneCarte({ item }) {
+  const p = item.produit;
+  const { ligne1, ligne2 } = formatNomProduit(p);
+  return (
+    <div className="flex items-baseline gap-3 text-sm lg:text-base">
+      <div className="flex-1">
+        <div style={{ ...fontDisplay, color: tokens.ink }} className="font-semibold">{ligne1}</div>
+        {ligne2 && <div style={{ ...fontBody, color: tokens.inkSoft }} className="text-sm">{ligne2}{p.millesime && ` — ${p.millesime}`}</div>}
+        {!ligne2 && p.millesime && <div style={{ ...fontBody, color: tokens.inkSoft }} className="text-sm">{p.millesime}</div>}
+        <div style={{ ...fontBody, color: tokens.inkFaint }} className="text-xs mt-0.5">{p.format}</div>
+      </div>
+      <div className="flex-shrink-0 border-b border-dashed self-end flex-1 mx-2 mb-1" style={{ borderColor: tokens.inkFaint }} />
+      <div style={{ ...fontDisplay, color: tokens.ink }} className="font-semibold text-lg">{item.pvpTtc ? formatEuro(item.pvpTtc) : '—'}</div>
+    </div>
+  );
+}
+
+function PreviewPage({ carte, produits, etablissements, onBack }) {
+  const etab = etablissements.find((e) => e.id === carte.etablissementId);
+  const sections = useMemo(() => {
+    const map = {};
+    (carte.lignes || []).forEach((l) => {
+      const p = produits.find((pr) => pr.id === l.produitId);
+      if (!p) return;
+      const key = `${p.service}__${p.couleur}`;
+      if (!map[key]) map[key] = { service: p.service, couleur: p.couleur, groupes: {} };
+      const groupKey = p.service === 'Au Verre' ? p.format : '_all_';
+      if (!map[key].groupes[groupKey]) map[key].groupes[groupKey] = [];
+      map[key].groupes[groupKey].push({ ...l, produit: p });
+    });
+    const orderCouleur = ['Champagne', 'Blanc', 'Rosé', 'Rouge', 'Vin Doux', 'Saké'];
+    const orderService = ['Au Verre', 'Bouteille'];
+    const result = Object.values(map).sort((a, b) => {
+      const sA = orderService.indexOf(a.service);
+      const sB = orderService.indexOf(b.service);
+      if (sA !== sB) return sA - sB;
+      return orderCouleur.indexOf(a.couleur) - orderCouleur.indexOf(b.couleur);
+    });
+    result.forEach((sec) => Object.keys(sec.groupes).forEach((g) => sec.groupes[g].sort((a, b) => (a.pvpTtc || 0) - (b.pvpTtc || 0))));
+    return result;
+  }, [carte, produits]);
+
+  const handleCopy = () => {
+    let text = `CARTE DES VINS — ${etab?.nom} · ${etab?.lieu} · ${carte.annee}\n\n`;
+    sections.forEach((sec) => {
+      text += `\n=== ${sec.service.toUpperCase()} — ${sec.couleur.toUpperCase()} ===\n`;
+      const groupKeys = sec.service === 'Au Verre' ? FORMATS_VERRE.filter((f) => sec.groupes[f]) : ['_all_'];
+      groupKeys.forEach((gk) => {
+        if (sec.service === 'Au Verre') text += `\n-- ${gk} --\n`;
+        text += '\n';
+        (sec.groupes[gk] || []).forEach((item) => {
+          const p = item.produit;
+          const { ligne1, ligne2 } = formatNomProduit(p);
+          text += `${ligne1}\n`;
+          if (ligne2) text += `${ligne2}`;
+          if (p.millesime) text += ` — ${p.millesime}`;
+          text += `\n${p.format} — ${formatEuro(item.pvpTtc)}\n\n`;
+        });
+      });
+    });
+    navigator.clipboard.writeText(text);
+    alert('Données copiées pour Lou');
+  };
+
+  return (
+    <div style={{ backgroundColor: tokens.bg }} className="min-h-screen">
+      <div className="no-print p-4 lg:p-8 max-w-5xl mx-auto">
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
+          <Button variant="ghost" icon="arrowLeft" onClick={onBack}>Retour éditeur</Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" icon="copy" onClick={handleCopy}>Copier pour graphiste</Button>
+            <Button variant="primary" icon="printer" onClick={() => window.print()}>Imprimer / PDF</Button>
+          </div>
+        </div>
+      </div>
+      <div className="printable max-w-4xl mx-auto px-6 lg:px-12 pb-16" style={{ backgroundColor: tokens.bgCard }}>
+        <div className="text-center py-10 border-b" style={{ borderColor: tokens.border }}>
+          <div style={{ ...fontBody, color: tokens.inkFaint }} className="text-xs uppercase tracking-[0.3em] mb-2">Indie Group</div>
+          <h1 style={{ ...fontDisplay, color: tokens.ink }} className="text-4xl lg:text-5xl font-semibold">Carte des Vins</h1>
+          <div style={{ ...fontBody, color: tokens.inkSoft }} className="mt-3 text-sm">{etab?.nom} · {etab?.lieu} · {carte.annee}</div>
+        </div>
+        {sections.length === 0 ? (
+          <p className="text-center py-16" style={{ ...fontBody, color: tokens.inkFaint }}>Cette carte est vide.</p>
+        ) : (
+          sections.map((sec) => (
+            <section key={`${sec.service}__${sec.couleur}`} className="py-8">
+              <div className="text-center mb-6">
+                <div style={{ ...fontBody, color: tokens.inkFaint }} className="text-[10px] uppercase tracking-[0.3em]">{sec.service}</div>
+                <h2 style={{ ...fontDisplay, color: tokens.ink }} className="text-2xl lg:text-3xl font-semibold mt-1">{sec.couleur}s</h2>
+              </div>
+              {sec.service === 'Au Verre' ? (
+                FORMATS_VERRE.filter((f) => sec.groupes[f]?.length > 0).map((fmt) => (
+                  <div key={fmt} className="mb-6">
+                    <div className="text-center mb-3">
+                      <span style={{ ...fontBody, color: tokens.inkSoft }} className="text-[10px] uppercase tracking-[0.2em]">Format {fmt}</span>
+                    </div>
+                    <div className="space-y-5">
+                      {sec.groupes[fmt].map((item) => <LigneCarte key={item.id} item={item} />)}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="space-y-5">
+                  {(sec.groupes['_all_'] || []).map((item) => <LigneCarte key={item.id} item={item} />)}
+                </div>
+              )}
+            </section>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AlertsPage({ alertes, user, onMarkRead, onApproveCreation }) {
+  if (user.role !== 'admin') {
+    return (
+      <div className="p-8 text-center">
+        <div className="flex justify-center mb-3"><Icon name="bell" size={32} style={{ color: tokens.inkFaint }} /></div>
+        <p style={{ ...fontBody, color: tokens.inkSoft }}>Réservé aux admins.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="p-4 lg:p-8 max-w-4xl mx-auto">
+      <h1 style={{ ...fontDisplay, color: tokens.ink }} className="text-2xl lg:text-3xl font-semibold mb-6">Alertes</h1>
+      {alertes.length === 0 ? (
+        <Card className="p-8 text-center">
+          <div className="flex justify-center mb-3"><Icon name="checkCircle" size={32} style={{ color: tokens.green }} /></div>
+          <p style={{ ...fontBody, color: tokens.inkSoft }}>Aucune alerte.</p>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {alertes.map((a) => (
+            <Card key={a.id} className="p-4 flex items-start gap-3">
+              <div className={`mt-0.5 w-2 h-2 rounded-full flex-shrink-0 ${a.lue ? 'bg-gray-300' : 'bg-red-500'}`} />
+              <div className="flex-1">
+                <p style={{ ...fontBody, color: tokens.ink }} className="text-sm font-medium">{a.message}</p>
+                <p style={{ ...fontBody, color: tokens.inkFaint }} className="text-xs mt-1">{new Date(a.date).toLocaleString('fr-FR')} · par {a.auteur}</p>
+                {a.type === 'nouveau_produit' && !a.lue && a.data && (
+                  <div className="mt-2 flex gap-2">
+                    <Button variant="accent" icon="check" size="sm" onClick={() => onApproveCreation(a)}>Approuver</Button>
+                    <Button variant="ghost" size="sm" onClick={() => onMarkRead(a.id)}>Rejeter</Button>
+                  </div>
+                )}
+              </div>
+              {a.type !== 'nouveau_produit' && !a.lue && (
+                <Button variant="ghost" size="sm" onClick={() => onMarkRead(a.id)}>Marquer lu</Button>
+              )}
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==================== APP PRINCIPAL ====================
+function App() {
+  const [view, setView] = useState('home');
+  const [user, setUser] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [produits, setProduits] = useState([]);
+  const [fournisseurs, setFournisseurs] = useState([]);
+  const [utilisateurs, setUtilisateurs] = useState([]);
+  const [cartes, setCartes] = useState([]);
+  const [alertes, setAlertes] = useState([]);
+  const [etablissements, setEtablissements] = useState([]);
+  const [currentCardId, setCurrentCardId] = useState(null);
+  const [editingProduit, setEditingProduit] = useState(null);
+  const [isCreatingProduit, setIsCreatingProduit] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
+
+  // Chargement initial : d'abord produits.json, puis merge avec localStorage
+  useEffect(() => {
+    (async () => {
+      try {
+        const response = await fetch('./produits.json?t=' + Date.now());
+        if (!response.ok) throw new Error('Impossible de charger produits.json');
+        const data = await response.json();
+        const localProduits = storage.get('ctm:produits');
+        const localFournisseurs = storage.get('ctm:fournisseurs');
+        const localCartes = storage.get('ctm:cartes');
+        const localAlertes = storage.get('ctm:alertes');
+        setEtablissements(data.etablissements || []);
+        setUtilisateurs(data.utilisateurs || []);
+        setProduits(localProduits || data.produits || []);
+        setFournisseurs(localFournisseurs || data.fournisseurs || []);
+        setCartes(localCartes || []);
+        setAlertes(localAlertes || []);
+        setUser((data.utilisateurs || [])[0] || null);
+      } catch (e) {
+        setLoadError(e.message);
+      }
+      setLoading(false);
+    })();
+  }, []);
+
+  // Persistance
+  useEffect(() => {
+    if (loading) return;
+    storage.set('ctm:produits', produits);
+    storage.set('ctm:fournisseurs', fournisseurs);
+    storage.set('ctm:cartes', cartes);
+    storage.set('ctm:alertes', alertes);
+  }, [produits, fournisseurs, cartes, alertes, loading]);
+
+  const handleCreateCard = (etablissementId) => {
+    const newCarte = {
+      id: `c${Date.now()}`,
+      etablissementId: etablissementId || etablissements[0]?.id,
+      annee: 2026, statut: 'brouillon', lignes: [],
+      dateModif: Date.now(), auteur: user.nom,
+    };
+    setCartes([...cartes, newCarte]);
+    setCurrentCardId(newCarte.id);
+    setView('editor');
+  };
+
+  const handleSaveProduit = (produit) => {
+    const exists = produits.find((p) => p.id === produit.id);
+    if (exists) setProduits(produits.map((p) => p.id === produit.id ? produit : p));
+    else {
+      setProduits([...produits, produit]);
+      if (produit.fournisseur && !fournisseurs.includes(produit.fournisseur)) {
+        setFournisseurs([...fournisseurs, produit.fournisseur].sort());
+      }
+    }
+    setEditingProduit(null);
+    setIsCreatingProduit(false);
+  };
+
+  const handleRequestCreation = (produit) => {
+    const alerte = {
+      id: `a${Date.now()}`, type: 'nouveau_produit',
+      message: `${user.nom} demande l'ajout de "${produit.appellation} — ${produit.domaine}" au catalogue`,
+      date: Date.now(), auteur: user.nom, lue: false, data: produit,
+    };
+    setAlertes([alerte, ...alertes]);
+    setEditingProduit(null);
+    setIsCreatingProduit(false);
+    alert('Demande envoyée à Victor pour validation.');
+  };
+
+  const handleApproveCreation = (alerte) => {
+    if (alerte.data) {
+      setProduits([...produits, alerte.data]);
+      if (alerte.data.fournisseur && !fournisseurs.includes(alerte.data.fournisseur)) {
+        setFournisseurs([...fournisseurs, alerte.data.fournisseur].sort());
+      }
+    }
+    setAlertes(alertes.map((a) => a.id === alerte.id ? { ...a, lue: true } : a));
+  };
+
+  const alertCount = alertes.filter((a) => !a.lue).length;
+
+  if (loading) {
+    return (
+      <div style={{ backgroundColor: tokens.bg }} className="min-h-screen flex items-center justify-center">
+        <div style={{ ...fontDisplay, color: tokens.inkSoft }} className="text-lg">Chargement…</div>
+      </div>
+    );
+  }
+  if (loadError || !user) {
+    return (
+      <div style={{ backgroundColor: tokens.bg }} className="min-h-screen flex items-center justify-center p-6 text-center">
+        <div>
+          <div style={{ ...fontDisplay, color: tokens.red }} className="text-xl font-semibold mb-2">Erreur de chargement</div>
+          <p style={{ ...fontBody, color: tokens.inkSoft }} className="text-sm">
+            {loadError || "Aucun utilisateur trouvé dans produits.json"}
+          </p>
+          <p style={{ ...fontBody, color: tokens.inkFaint }} className="text-xs mt-4">
+            Vérifie que le fichier produits.json est bien à la racine du site et que le JSON est valide.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const currentCard = cartes.find((c) => c.id === currentCardId);
+
+  return (
+    <div style={{ backgroundColor: tokens.bg, minHeight: '100vh', ...fontBody }} className="flex flex-col">
+      <Header user={user} onUserChange={setUser} onToggleSidebar={() => setSidebarOpen(true)} utilisateurs={utilisateurs} />
+      <div className="flex flex-1">
+        <Sidebar view={view} setView={setView} isMobile={false} isOpen={false} onClose={() => {}} alertCount={alertCount} />
+        <Sidebar view={view} setView={setView} isMobile={true} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} alertCount={alertCount} />
+        <main className="flex-1 overflow-x-hidden">
+          {view === 'home' && <HomePage user={user} produits={produits} cartes={cartes} alertes={alertes} etablissements={etablissements}
+            onOpenCard={(id) => { setCurrentCardId(id); setView('editor'); }} onCreateCard={handleCreateCard} />}
+          {view === 'catalog' && <CatalogPage produits={produits} fournisseurs={fournisseurs} user={user}
+            onEditProduit={setEditingProduit} onAddProduit={() => setIsCreatingProduit(true)} />}
+          {view === 'suppliers' && <SuppliersPage produits={produits} fournisseurs={fournisseurs} user={user} onEditProduit={setEditingProduit} />}
+          {view === 'cards' && <CardsPage cartes={cartes} etablissements={etablissements} user={user}
+            onOpenCard={(id) => { setCurrentCardId(id); setView('editor'); }} onCreateCard={handleCreateCard} />}
+          {view === 'alerts' && <AlertsPage alertes={alertes} user={user}
+            onMarkRead={(id) => setAlertes(alertes.map((a) => a.id === id ? { ...a, lue: true } : a))}
+            onApproveCreation={handleApproveCreation} />}
+          {view === 'editor' && currentCard && <CardEditor carte={currentCard} produits={produits} etablissements={etablissements} user={user}
+            onBack={() => setView('cards')}
+            onSave={(updated) => setCartes(cartes.map((c) => c.id === updated.id ? updated : c))}
+            onPreview={(id) => { setCurrentCardId(id); setView('preview'); }}
+            onEditProduit={setEditingProduit} />}
+          {view === 'preview' && currentCard && <PreviewPage carte={currentCard} produits={produits} etablissements={etablissements}
+            onBack={() => setView('editor')} />}
+        </main>
+      </div>
+      {(editingProduit || isCreatingProduit) && (
+        <ProduitEditModal produit={editingProduit} fournisseurs={fournisseurs} user={user}
+          onSave={handleSaveProduit} onRequestCreation={handleRequestCreation}
+          onClose={() => { setEditingProduit(null); setIsCreatingProduit(false); }} />
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+
+  </script>
+</body>
+</html>
