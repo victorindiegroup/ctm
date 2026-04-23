@@ -10,10 +10,10 @@
   <title>CTM · Carte Tarif Millésime</title>
 
   <!-- Icônes / PWA (avec version pour contourner le cache mobile) -->
-  <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png?v=1.2.0">
-  <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png?v=1.2.0">
-  <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png?v=1.2.0">
-  <link rel="manifest" href="./manifest.json?v=1.2.0">
+  <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png?v=1.3.0">
+  <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png?v=1.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png?v=1.3.0">
+  <link rel="manifest" href="./manifest.json?v=1.3.0">
 
   <!-- Fonts Google : Fraunces (serif) + Manrope (sans) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -57,7 +57,7 @@
 const { useState, useEffect, useMemo } = React;
 
 // Version de l'app (à incrémenter à chaque mise à jour de l'index.html)
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.3.0';
 
 // Hash SHA-256 d'un PIN (pour l'auth côté client)
 async function hashPin(pin) {
@@ -161,6 +161,55 @@ const formatNomProduit = (p) => {
   return { ligne1, ligne2: p.domaine || '' };
 };
 
+// ==================== HELPERS FOURNISSEURS ====================
+
+// Normaliser la liste de fournisseurs (compat ancien format "string" vers nouveau "{nom,type}")
+const normalizeFournisseurs = (liste) => (liste || []).map((f) =>
+  typeof f === 'string' ? { nom: f, type: 'direct' } : f
+);
+
+// Retourne les noms d'agences (array de strings upper-case pour matching)
+const getAgenceNames = (fournisseurs) =>
+  normalizeFournisseurs(fournisseurs)
+    .filter((f) => f.type === 'agence')
+    .map((f) => f.nom.toUpperCase());
+
+// Parse un champ fournisseur de produit : "CLOS DE TART - AVM" → {agence:"AVM", domaine:"CLOS DE TART"}
+// "AVM" → {agence:"AVM", domaine:null}  (si AVM est une agence)
+// "MINUTY" → {agence:null, domaine:"MINUTY"}  (fournisseur direct)
+const parseFournisseur = (fournisseur, agenceNames) => {
+  if (!fournisseur) return { agence: null, domaine: null, raw: fournisseur };
+  const raw = fournisseur.trim();
+  if (raw.includes(' - ')) {
+    const parts = raw.split(' - ');
+    const suffix = parts[parts.length - 1].trim();
+    if (agenceNames.includes(suffix.toUpperCase())) {
+      const domaine = parts.slice(0, -1).join(' - ').trim();
+      // Retrouver le nom exact de l'agence (casse)
+      const agenceExact = suffix; // on prend la casse telle qu'écrite
+      return { agence: agenceExact, domaine, raw };
+    }
+  }
+  // Pas de tiret ou suffix non-agence → peut-être le nom complet d'une agence
+  if (agenceNames.includes(raw.toUpperCase())) {
+    return { agence: raw, domaine: null, raw };
+  }
+  return { agence: null, domaine: raw, raw };
+};
+
+// Retrouve le nom "canonique" (casse exacte) d'une agence dans la liste
+const resolveAgenceCanonical = (fournisseurs, agenceName) => {
+  const list = normalizeFournisseurs(fournisseurs);
+  const f = list.find((x) => x.type === 'agence' && x.nom.toUpperCase() === (agenceName || '').toUpperCase());
+  return f ? f.nom : agenceName;
+};
+
+// Construit la string de fournisseur à stocker dans un produit
+const buildFournisseurString = (agence, domaine) => {
+  if (agence && domaine) return `${domaine.trim()} - ${agence.trim()}`;
+  return (agence || domaine || '').trim();
+};
+
 // ==================== DESIGN TOKENS ====================
 const tokens = {
   bg: '#F6F1E7', bgCard: '#FFFDF7', bgAlt: '#EFE8D9',
@@ -245,6 +294,10 @@ function Label({ children }) {
 // ==================== MODAL ÉDITION PRODUIT ====================
 function ProduitEditModal({ produit, fournisseurs, onSave, onClose, user, onRequestCreation }) {
   const isNew = !produit;
+  const fList = normalizeFournisseurs(fournisseurs);
+  const agenceNames = getAgenceNames(fournisseurs);
+  const parsedInit = produit ? parseFournisseur(produit.fournisseur, agenceNames) : { agence: null, domaine: null };
+
   const [service, setService] = useState(produit?.service || 'Bouteille');
   const [couleur, setCouleur] = useState(produit?.couleur || 'Rouge');
   const [region, setRegion] = useState(produit?.region || '');
@@ -258,15 +311,41 @@ function ProduitEditModal({ produit, fournisseurs, onSave, onClose, user, onRequ
   const [millesime, setMillesime] = useState(produit?.millesime || '');
   const [format, setFormat] = useState(produit?.format || (service === 'Au Verre' ? '12 cl' : 'BTL'));
   const [paHt, setPaHt] = useState(produit?.paHt || '');
-  const [fournisseur, setFournisseur] = useState(produit?.fournisseur || '');
+
+  // Fournisseur : soit on choisit une agence (+ sous-domaine), soit un direct
+  const [mode, setMode] = useState(parsedInit.agence ? 'agence' : 'direct');
+  const [agenceSel, setAgenceSel] = useState(parsedInit.agence || '');
+  const [sousDomaine, setSousDomaine] = useState(parsedInit.domaine || '');
+  const [fournisseurDirect, setFournisseurDirect] = useState(
+    parsedInit.agence ? '' : (parsedInit.domaine || '')
+  );
 
   useEffect(() => {
     if (service === 'Au Verre' && !FORMATS_VERRE.includes(format)) setFormat('12 cl');
     if (service === 'Bouteille' && FORMATS_VERRE.includes(format)) setFormat('BTL');
   }, [service]);
 
+  const agencesListe = fList.filter((f) => f.type === 'agence');
+  const directsListe = fList.filter((f) => f.type === 'direct').map((f) => f.nom);
+
+  // Liste des sous-domaines existants pour l'agence sélectionnée (aide à éviter les doublons)
+  const sousDomainesExistants = useMemo(() => {
+    if (mode !== 'agence' || !agenceSel) return [];
+    const set = new Set();
+    // On ne peut pas accéder aux produits depuis ici ; on laisse le champ libre
+    return Array.from(set).sort();
+  }, [mode, agenceSel]);
+
   const canSubmit = appellation.trim() && domaine.trim() && format && paHt;
   const handleSave = () => {
+    // Construction du champ fournisseur final
+    let fournisseurFinal = null;
+    if (mode === 'agence' && agenceSel) {
+      fournisseurFinal = buildFournisseurString(agenceSel, sousDomaine);
+    } else if (mode === 'direct' && fournisseurDirect) {
+      fournisseurFinal = fournisseurDirect.trim();
+    }
+
     const p = {
       id: produit?.id || `p${Date.now()}${Math.random().toString(36).slice(2, 6)}`,
       service, couleur,
@@ -275,7 +354,7 @@ function ProduitEditModal({ produit, fournisseurs, onSave, onClose, user, onRequ
       parcelle: hasParcelle && parcelle.trim() ? parcelle.trim() : null,
       cuvee: hasCuvee && cuvee.trim() ? cuvee.trim() : null,
       millesime: millesime || null, format,
-      paHt: parseFloat(paHt), fournisseur: fournisseur || null,
+      paHt: parseFloat(paHt), fournisseur: fournisseurFinal,
     };
     if (isNew && user.role === 'editeur') onRequestCreation(p);
     else onSave(p);
@@ -338,10 +417,66 @@ function ProduitEditModal({ produit, fournisseurs, onSave, onClose, user, onRequ
             </div>
             <div><Label>Millésime</Label><Input value={millesime} onChange={setMillesime} placeholder="ex: 2022 ou NM" /></div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><Label>Prix d'achat HT *</Label><Input value={paHt} onChange={setPaHt} type="number" placeholder="ex: 28.06" /></div>
-            <div><Label>Fournisseur</Label><Select value={fournisseur} onChange={(v) => setFournisseur(v || '')} options={fournisseurs} placeholder="Sélectionner" /></div>
+          <div><Label>Prix d'achat HT *</Label><Input value={paHt} onChange={setPaHt} type="number" placeholder="ex: 28.06" /></div>
+
+          {/* Section fournisseur refondue */}
+          <div style={{ backgroundColor: tokens.bgCard, borderColor: tokens.border }} className="border rounded-lg p-3 space-y-3">
+            <Label>Fournisseur</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={() => setMode('direct')}
+                      style={{
+                        ...fontBody,
+                        backgroundColor: mode === 'direct' ? tokens.ink : tokens.bg,
+                        color: mode === 'direct' ? tokens.bg : tokens.ink,
+                        borderColor: tokens.border,
+                      }}
+                      className="border rounded-lg py-2 text-sm">
+                Direct
+              </button>
+              <button onClick={() => setMode('agence')}
+                      style={{
+                        ...fontBody,
+                        backgroundColor: mode === 'agence' ? tokens.ink : tokens.bg,
+                        color: mode === 'agence' ? tokens.bg : tokens.ink,
+                        borderColor: tokens.border,
+                      }}
+                      className="border rounded-lg py-2 text-sm">
+                Via une agence
+              </button>
+            </div>
+
+            {mode === 'direct' ? (
+              <div>
+                <Select value={fournisseurDirect} onChange={(v) => setFournisseurDirect(v || '')}
+                        options={directsListe} placeholder="Sélectionner un fournisseur" />
+                <p style={{ ...fontBody, color: tokens.inkFaint }} className="text-[11px] mt-1">
+                  Saisie d'un nouveau fournisseur : tape directement son nom. Il sera ajouté à la liste.
+                </p>
+                <Input value={fournisseurDirect} onChange={setFournisseurDirect} placeholder="Ou saisir un nouveau nom" />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div>
+                  <Label>Agence</Label>
+                  <select value={agenceSel} onChange={(e) => setAgenceSel(e.target.value)}
+                          style={{ ...fontBody, backgroundColor: tokens.bg, borderColor: tokens.border, color: tokens.ink }}
+                          className="w-full border rounded-lg py-2 px-3 text-sm focus:outline-none">
+                    <option value="">Choisir une agence...</option>
+                    {agencesListe.map((a) => <option key={a.nom} value={a.nom}>{a.nom}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <Label>Domaine représenté (optionnel)</Label>
+                  <Input value={sousDomaine} onChange={setSousDomaine}
+                         placeholder="Laisser vide = stock direct de l'agence" />
+                  <p style={{ ...fontBody, color: tokens.inkFaint }} className="text-[11px] mt-1">
+                    Sera enregistré comme : <strong>{buildFournisseurString(agenceSel || 'Agence', sousDomaine) || '—'}</strong>
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
+
           <div style={{ backgroundColor: tokens.bgAlt, borderColor: tokens.border }} className="border rounded-lg p-3">
             <Label>Aperçu sur la carte</Label>
             <div style={{ ...fontDisplay, color: tokens.ink }} className="font-semibold">
@@ -365,6 +500,43 @@ function ProduitEditModal({ produit, fournisseurs, onSave, onClose, user, onRequ
           <Button variant="primary" icon="save" onClick={handleSave} disabled={!canSubmit}>
             {isNew ? (user.role === 'editeur' ? 'Envoyer la demande' : 'Créer') : 'Enregistrer'}
           </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==================== MODAL CRÉATION AGENCE ====================
+function CreateAgenceModal({ onCreate, onClose, existing }) {
+  const [nom, setNom] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSubmit = () => {
+    const n = nom.trim();
+    if (!n) return;
+    const exists = (existing || []).some((f) =>
+      (typeof f === 'string' ? f : f.nom).toUpperCase() === n.toUpperCase()
+    );
+    if (exists) {
+      setError('Ce nom existe déjà dans la liste des fournisseurs.');
+      return;
+    }
+    onCreate(n);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div style={{ backgroundColor: tokens.bg }} className="w-full max-w-md rounded-xl p-5">
+        <h3 style={{ ...fontDisplay, color: tokens.ink }} className="text-lg font-semibold mb-3">Nouvelle agence</h3>
+        <p style={{ ...fontBody, color: tokens.inkSoft }} className="text-sm mb-4">
+          Une agence représente plusieurs domaines. Les produits pourront y être rattachés avec un sous-domaine (ex : <em>Clos de Tart - {nom || 'AGENCE'}</em>).
+        </p>
+        <Label>Nom de l'agence</Label>
+        <Input value={nom} onChange={(v) => { setNom(v); setError(''); }} placeholder="ex: AVM, Matthieu Perrin..." />
+        {error && <p style={{ color: tokens.red, ...fontBody }} className="text-xs mt-2">{error}</p>}
+        <div className="flex gap-2 justify-end mt-5">
+          <Button variant="ghost" onClick={onClose}>Annuler</Button>
+          <Button variant="primary" icon="save" onClick={handleSubmit} disabled={!nom.trim()}>Créer</Button>
         </div>
       </div>
     </div>
@@ -407,7 +579,7 @@ function LoginScreen({ utilisateurs, onLogin }) {
       <div style={{ backgroundColor: tokens.bg, minHeight: '100vh', ...fontBody }}
            className="flex flex-col items-center justify-center p-6">
         <div className="text-center mb-8">
-          <img src="./icon-192.png?v=1.2.0" alt="CTM"
+          <img src="./icon-192.png?v=1.3.0" alt="CTM"
                style={{ width: 72, height: 72, borderRadius: 16, margin: '0 auto 16px' }} />
           <h1 style={{ ...fontDisplay, color: tokens.ink }} className="text-3xl font-semibold">CTM</h1>
           <p style={{ ...fontBody, color: tokens.inkSoft }} className="text-sm mt-1">
@@ -506,7 +678,7 @@ function Header({ user, onLogout, onToggleSidebar }) {
         <button className="lg:hidden" onClick={onToggleSidebar}>
           <Icon name="menu" size={22} style={{ color: tokens.ink }} />
         </button>
-        <img src="./icon-192.png?v=1.2.0" alt="CTM" width="36" height="36"
+        <img src="./icon-192.png?v=1.3.0" alt="CTM" width="36" height="36"
              style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover' }} />
         <div className="flex items-baseline gap-2">
           <span style={{ ...fontDisplay, color: tokens.ink }} className="text-2xl font-semibold tracking-tight">CTM</span>
@@ -952,6 +1124,10 @@ function CatalogPage({ produits, fournisseurs, user, onEditProduit, onAddProduit
   const [fFournisseur, setFFournisseur] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
   const regions = useMemo(() => [...new Set(produits.map((p) => p.region).filter(Boolean))].sort(), [produits]);
+  // Liste des noms de fournisseurs pour le filtre (tous : agences + directs)
+  const fournisseursNoms = useMemo(() =>
+    normalizeFournisseurs(fournisseurs).map((f) => f.nom).sort(),
+    [fournisseurs]);
   const filtered = useMemo(() => produits.filter((p) => {
     if (search) {
       const s = search.toLowerCase();
@@ -961,7 +1137,12 @@ function CatalogPage({ produits, fournisseurs, user, onEditProduit, onAddProduit
     if (fService && p.service !== fService) return false;
     if (fCouleur && p.couleur !== fCouleur) return false;
     if (fRegion && p.region !== fRegion) return false;
-    if (fFournisseur && p.fournisseur !== fFournisseur) return false;
+    if (fFournisseur) {
+      // Match exact OU si on sélectionne une agence, match aussi les "XXX - agence"
+      if (p.fournisseur !== fFournisseur) {
+        if (!p.fournisseur || !p.fournisseur.endsWith(` - ${fFournisseur}`)) return false;
+      }
+    }
     return true;
   }), [produits, search, fService, fCouleur, fRegion, fFournisseur]);
   return (
@@ -987,7 +1168,7 @@ function CatalogPage({ produits, fournisseurs, user, onEditProduit, onAddProduit
             <div><Label>Service</Label><Select value={fService} onChange={setFService} options={['Au Verre', 'Bouteille']} /></div>
             <div><Label>Couleur</Label><Select value={fCouleur} onChange={setFCouleur} options={COULEURS} /></div>
             <div><Label>Région</Label><Select value={fRegion} onChange={setFRegion} options={regions} /></div>
-            <div><Label>Fournisseur</Label><Select value={fFournisseur} onChange={setFFournisseur} options={fournisseurs} /></div>
+            <div><Label>Fournisseur</Label><Select value={fFournisseur} onChange={setFFournisseur} options={fournisseursNoms} /></div>
           </div>
           {(fService || fCouleur || fRegion || fFournisseur) && (
             <div className="mt-3">
@@ -1004,50 +1185,240 @@ function CatalogPage({ produits, fournisseurs, user, onEditProduit, onAddProduit
   );
 }
 
-function SuppliersPage({ produits, fournisseurs, user, onEditProduit }) {
+function SuppliersPage({ produits, fournisseurs, user, onEditProduit, onCreateAgence }) {
   const [selected, setSelected] = useState(null);
+  const [search, setSearch] = useState('');
+  const fList = normalizeFournisseurs(fournisseurs);
+  const agenceNames = getAgenceNames(fournisseurs);
+
+  // Compter les vins par fournisseur (incluant ses sous-domaines si agence)
   const stats = useMemo(() => {
     const map = {};
-    fournisseurs.forEach((f) => { map[f] = 0; });
-    produits.forEach((p) => { if (p.fournisseur && map[p.fournisseur] !== undefined) map[p.fournisseur]++; });
+    fList.forEach((f) => { map[f.nom] = { total: 0, sousDomaines: new Set() }; });
+    produits.forEach((p) => {
+      const parsed = parseFournisseur(p.fournisseur, agenceNames);
+      if (parsed.agence) {
+        const canonical = resolveAgenceCanonical(fList, parsed.agence);
+        if (map[canonical]) {
+          map[canonical].total++;
+          if (parsed.domaine) map[canonical].sousDomaines.add(parsed.domaine);
+        }
+      } else if (parsed.domaine) {
+        // Chercher un fournisseur direct avec ce nom
+        const direct = fList.find((x) => x.nom.toUpperCase() === parsed.domaine.toUpperCase());
+        if (direct && map[direct.nom]) map[direct.nom].total++;
+      }
+    });
     return map;
   }, [produits, fournisseurs]);
+
+  // Vue détail d'un fournisseur
   if (selected) {
-    const pf = produits.filter((p) => p.fournisseur === selected);
+    const selF = fList.find((f) => f.nom === selected);
+    if (!selF) { setSelected(null); return null; }
+
+    if (selF.type === 'agence') {
+      return <SuppliersAgencePage
+        agence={selF} produits={produits} fournisseurs={fournisseurs}
+        user={user} onEditProduit={onEditProduit}
+        onBack={() => setSelected(null)} />;
+    }
+
+    // Fournisseur direct : liste des produits
+    const pf = produits.filter((p) => {
+      if (!p.fournisseur) return false;
+      return p.fournisseur.trim().toUpperCase() === selF.nom.toUpperCase();
+    });
     return (
       <div className="p-4 lg:p-8 max-w-7xl mx-auto">
         <Button variant="ghost" icon="arrowLeft" onClick={() => setSelected(null)} className="mb-4">Retour</Button>
-        <h1 style={{ ...fontDisplay, color: tokens.ink }} className="text-2xl lg:text-3xl font-semibold">{selected}</h1>
-        <p style={{ ...fontBody, color: tokens.inkSoft }} className="text-sm mt-1 mb-6">{pf.length} référence{pf.length > 1 ? 's' : ''} · Mercuriale 2026</p>
+        <h1 style={{ ...fontDisplay, color: tokens.ink }} className="text-2xl lg:text-3xl font-semibold">{selF.nom}</h1>
+        <p style={{ ...fontBody, color: tokens.inkSoft }} className="text-sm mt-1 mb-6">
+          {pf.length} référence{pf.length > 1 ? 's' : ''} · Fournisseur direct
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          {pf.map((p) => <ProduitCard key={p.id} produit={p} onEdit={user.role !== 'lecteur' ? () => onEditProduit(p) : null} />)}
+        </div>
+        {pf.length === 0 && <p className="text-center py-8" style={{ ...fontBody, color: tokens.inkFaint }}>Aucun produit pour ce fournisseur.</p>}
+      </div>
+    );
+  }
+
+  // Liste des fournisseurs
+  const filtered = fList.filter((f) => !search || f.nom.toLowerCase().includes(search.toLowerCase()));
+  const agences = filtered.filter((f) => f.type === 'agence');
+  const directs = filtered.filter((f) => f.type === 'direct');
+
+  return (
+    <div className="p-4 lg:p-8 max-w-7xl mx-auto">
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+        <div>
+          <h1 style={{ ...fontDisplay, color: tokens.ink }} className="text-2xl lg:text-3xl font-semibold">Mercuriales</h1>
+          <p style={{ ...fontBody, color: tokens.inkSoft }} className="text-sm mt-1">
+            {agences.length} agence{agences.length > 1 ? 's' : ''} · {directs.length} fournisseur{directs.length > 1 ? 's' : ''} direct{directs.length > 1 ? 's' : ''}
+          </p>
+        </div>
+        {user.role !== 'lecteur' && (
+          <Button variant="secondary" icon="plus" onClick={onCreateAgence}>
+            <span className="hidden sm:inline">Nouvelle agence</span>
+          </Button>
+        )}
+      </div>
+
+      <div className="mb-4">
+        <Input value={search} onChange={setSearch} placeholder="Rechercher un fournisseur ou une agence…" icon="search" />
+      </div>
+
+      {agences.length > 0 && (
+        <div className="mb-8">
+          <h2 style={{ ...fontDisplay, color: tokens.ink }} className="text-lg font-semibold mb-3">Agences</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            {agences.map((f) => {
+              const s = stats[f.nom] || { total: 0, sousDomaines: new Set() };
+              return (
+                <Card key={f.nom} className="p-4" onClick={() => setSelected(f.nom)}>
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div>
+                      <h3 style={{ ...fontDisplay, color: tokens.ink }} className="font-semibold leading-tight">{f.nom}</h3>
+                      <div style={{ ...fontBody, color: tokens.accent }} className="text-[10px] uppercase tracking-wider mt-0.5">Agence</div>
+                    </div>
+                    <Icon name="chevronRight" size={16} style={{ color: tokens.inkFaint }} />
+                  </div>
+                  <div className="flex items-center justify-between text-xs mt-2" style={{ ...fontBody, color: tokens.inkSoft }}>
+                    <span>{s.total} vin{s.total > 1 ? 's' : ''}</span>
+                    <span>{s.sousDomaines.size} domaine{s.sousDomaines.size > 1 ? 's' : ''}</span>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {directs.length > 0 && (
+        <div>
+          <h2 style={{ ...fontDisplay, color: tokens.ink }} className="text-lg font-semibold mb-3">Fournisseurs directs</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            {directs.map((f) => {
+              const s = stats[f.nom] || { total: 0 };
+              return (
+                <Card key={f.nom} className="p-4" onClick={() => setSelected(f.nom)}>
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <h3 style={{ ...fontDisplay, color: tokens.ink }} className="font-semibold leading-tight">{f.nom}</h3>
+                    <Icon name="chevronRight" size={16} style={{ color: tokens.inkFaint }} />
+                  </div>
+                  <div style={{ ...fontBody, color: tokens.inkSoft }} className="text-xs">{s.total} vin{s.total > 1 ? 's' : ''}</div>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {filtered.length === 0 && (
+        <p className="text-center py-8" style={{ ...fontBody, color: tokens.inkFaint }}>Aucun fournisseur ne correspond à la recherche.</p>
+      )}
+    </div>
+  );
+}
+
+function SuppliersAgencePage({ agence, produits, fournisseurs, user, onEditProduit, onBack }) {
+  const [selectedDomaine, setSelectedDomaine] = useState(null);
+  const agenceNames = getAgenceNames(fournisseurs);
+
+  // Grouper les produits de cette agence par sous-domaine
+  const grouped = useMemo(() => {
+    const map = { __direct: [] };
+    produits.forEach((p) => {
+      const parsed = parseFournisseur(p.fournisseur, agenceNames);
+      if (parsed.agence && parsed.agence.toUpperCase() === agence.nom.toUpperCase()) {
+        if (parsed.domaine) {
+          if (!map[parsed.domaine]) map[parsed.domaine] = [];
+          map[parsed.domaine].push(p);
+        } else {
+          map.__direct.push(p);
+        }
+      }
+    });
+    return map;
+  }, [produits, agence]);
+
+  const sousDomaines = Object.keys(grouped).filter((k) => k !== '__direct').sort();
+  const produitsDirect = grouped.__direct || [];
+  const totalProduits = produitsDirect.length + sousDomaines.reduce((sum, d) => sum + grouped[d].length, 0);
+
+  // Vue d'un sous-domaine spécifique
+  if (selectedDomaine) {
+    const isDirect = selectedDomaine === '__direct';
+    const pf = isDirect ? produitsDirect : (grouped[selectedDomaine] || []);
+    return (
+      <div className="p-4 lg:p-8 max-w-7xl mx-auto">
+        <Button variant="ghost" icon="arrowLeft" onClick={() => setSelectedDomaine(null)} className="mb-4">
+          Retour à {agence.nom}
+        </Button>
+        <div style={{ ...fontBody, color: tokens.accent }} className="text-xs uppercase tracking-wider">
+          {agence.nom} — Agence
+        </div>
+        <h1 style={{ ...fontDisplay, color: tokens.ink }} className="text-2xl lg:text-3xl font-semibold mt-0.5">
+          {isDirect ? `Direct ${agence.nom}` : selectedDomaine}
+        </h1>
+        <p style={{ ...fontBody, color: tokens.inkSoft }} className="text-sm mt-1 mb-6">
+          {pf.length} référence{pf.length > 1 ? 's' : ''}
+        </p>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
           {pf.map((p) => <ProduitCard key={p.id} produit={p} onEdit={user.role !== 'lecteur' ? () => onEditProduit(p) : null} />)}
         </div>
       </div>
     );
   }
+
+  // Vue principale de l'agence : liste des sous-domaines
   return (
     <div className="p-4 lg:p-8 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 style={{ ...fontDisplay, color: tokens.ink }} className="text-2xl lg:text-3xl font-semibold">Mercuriales</h1>
-          <p style={{ ...fontBody, color: tokens.inkSoft }} className="text-sm mt-1">{fournisseurs.length} fournisseurs</p>
-        </div>
-        {user.role !== 'lecteur' && (<Button variant="secondary" icon="upload"><span className="hidden sm:inline">Importer</span></Button>)}
-      </div>
+      <Button variant="ghost" icon="arrowLeft" onClick={onBack} className="mb-4">Retour</Button>
+      <div style={{ ...fontBody, color: tokens.accent }} className="text-xs uppercase tracking-wider">Agence</div>
+      <h1 style={{ ...fontDisplay, color: tokens.ink }} className="text-2xl lg:text-3xl font-semibold mt-0.5">{agence.nom}</h1>
+      <p style={{ ...fontBody, color: tokens.inkSoft }} className="text-sm mt-1 mb-6">
+        {totalProduits} vin{totalProduits > 1 ? 's' : ''} · {sousDomaines.length} domaine{sousDomaines.length > 1 ? 's' : ''} représenté{sousDomaines.length > 1 ? 's' : ''}
+        {produitsDirect.length > 0 && ` · ${produitsDirect.length} en direct`}
+      </p>
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-        {fournisseurs.slice().sort().map((f) => (
-          <Card key={f} className="p-4" onClick={() => setSelected(f)}>
+        {produitsDirect.length > 0 && (
+          <Card className="p-4" onClick={() => setSelectedDomaine('__direct')}
+                style={{ borderColor: tokens.accent, borderWidth: 1 }}>
             <div className="flex items-start justify-between gap-2 mb-2">
-              <h3 style={{ ...fontDisplay, color: tokens.ink }} className="font-semibold leading-tight">{f}</h3>
+              <div>
+                <h3 style={{ ...fontDisplay, color: tokens.ink }} className="font-semibold leading-tight">
+                  Direct {agence.nom}
+                </h3>
+                <div style={{ ...fontBody, color: tokens.inkFaint }} className="text-[10px] uppercase tracking-wider mt-0.5">
+                  Stock propre de l'agence
+                </div>
+              </div>
               <Icon name="chevronRight" size={16} style={{ color: tokens.inkFaint }} />
             </div>
-            <div className="flex items-center justify-between text-xs" style={{ ...fontBody, color: tokens.inkSoft }}>
-              <span>{stats[f] || 0} réf.</span>
-              <span>Mercuriale 2026</span>
+            <div style={{ ...fontBody, color: tokens.inkSoft }} className="text-xs">
+              {produitsDirect.length} vin{produitsDirect.length > 1 ? 's' : ''}
+            </div>
+          </Card>
+        )}
+        {sousDomaines.map((d) => (
+          <Card key={d} className="p-4" onClick={() => setSelectedDomaine(d)}>
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <h3 style={{ ...fontDisplay, color: tokens.ink }} className="font-semibold leading-tight">{d}</h3>
+              <Icon name="chevronRight" size={16} style={{ color: tokens.inkFaint }} />
+            </div>
+            <div style={{ ...fontBody, color: tokens.inkSoft }} className="text-xs">
+              {grouped[d].length} vin{grouped[d].length > 1 ? 's' : ''}
             </div>
           </Card>
         ))}
       </div>
+      {totalProduits === 0 && (
+        <Card className="p-8 text-center">
+          <p style={{ ...fontBody, color: tokens.inkFaint }}>Aucun produit n'est encore rattaché à cette agence.</p>
+        </Card>
+      )}
     </div>
   );
 }
@@ -1540,6 +1911,7 @@ function App() {
   const [currentEtablissementId, setCurrentEtablissementId] = useState(null);
   const [editingProduit, setEditingProduit] = useState(null);
   const [isCreatingProduit, setIsCreatingProduit] = useState(false);
+  const [isCreatingAgence, setIsCreatingAgence] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [dataVersion, setDataVersion] = useState(null);
@@ -1664,12 +2036,24 @@ function App() {
   const handleSaveProduit = (produit) => {
     const exists = produits.find((p) => p.id === produit.id);
     if (exists) setProduits(produits.map((p) => p.id === produit.id ? produit : p));
-    else {
-      setProduits([...produits, produit]);
-      if (produit.fournisseur && !fournisseurs.includes(produit.fournisseur)) {
-        setFournisseurs([...fournisseurs, produit.fournisseur].sort());
+    else setProduits([...produits, produit]);
+
+    // Ajouter le fournisseur s'il n'existe pas (mais seulement si c'est un nouveau direct)
+    if (produit.fournisseur) {
+      const fList = normalizeFournisseurs(fournisseurs);
+      const agenceNames = getAgenceNames(fournisseurs);
+      const parsed = parseFournisseur(produit.fournisseur, agenceNames);
+      // Si c'est un direct qu'on ne connaît pas, on l'ajoute
+      if (!parsed.agence && parsed.domaine) {
+        const existsFour = fList.some((f) => f.nom.toUpperCase() === parsed.domaine.toUpperCase());
+        if (!existsFour) {
+          const newList = [...fList, { nom: parsed.domaine, type: 'direct' }];
+          newList.sort((a, b) => a.nom.toUpperCase().localeCompare(b.nom.toUpperCase()));
+          setFournisseurs(newList);
+        }
       }
     }
+
     setEditingProduit(null);
     setIsCreatingProduit(false);
   };
@@ -1689,11 +2073,28 @@ function App() {
   const handleApproveCreation = (alerte) => {
     if (alerte.data) {
       setProduits([...produits, alerte.data]);
-      if (alerte.data.fournisseur && !fournisseurs.includes(alerte.data.fournisseur)) {
-        setFournisseurs([...fournisseurs, alerte.data.fournisseur].sort());
+      if (alerte.data.fournisseur) {
+        const fList = normalizeFournisseurs(fournisseurs);
+        const agenceNames = getAgenceNames(fournisseurs);
+        const parsed = parseFournisseur(alerte.data.fournisseur, agenceNames);
+        if (!parsed.agence && parsed.domaine) {
+          const existsFour = fList.some((f) => f.nom.toUpperCase() === parsed.domaine.toUpperCase());
+          if (!existsFour) {
+            const newList = [...fList, { nom: parsed.domaine, type: 'direct' }];
+            newList.sort((a, b) => a.nom.toUpperCase().localeCompare(b.nom.toUpperCase()));
+            setFournisseurs(newList);
+          }
+        }
       }
     }
     setAlertes(alertes.map((a) => a.id === alerte.id ? { ...a, lue: true } : a));
+  };
+
+  const handleCreateAgence = (nom) => {
+    const newList = [...normalizeFournisseurs(fournisseurs), { nom: nom.trim(), type: 'agence' }];
+    newList.sort((a, b) => a.nom.toUpperCase().localeCompare(b.nom.toUpperCase()));
+    setFournisseurs(newList);
+    setIsCreatingAgence(false);
   };
 
   const alertCount = alertes.filter((a) => !a.lue).length;
@@ -1747,7 +2148,8 @@ function App() {
           />}
           {view === 'catalog' && <CatalogPage produits={produits} fournisseurs={fournisseurs} user={user}
             onEditProduit={setEditingProduit} onAddProduit={() => setIsCreatingProduit(true)} />}
-          {view === 'suppliers' && <SuppliersPage produits={produits} fournisseurs={fournisseurs} user={user} onEditProduit={setEditingProduit} />}
+          {view === 'suppliers' && <SuppliersPage produits={produits} fournisseurs={fournisseurs} user={user}
+            onEditProduit={setEditingProduit} onCreateAgence={() => setIsCreatingAgence(true)} />}
           {view === 'cards' && <CardsPage cartes={cartes} etablissements={etablissements} user={user}
             onOpenCard={(id) => { setCurrentCardId(id); setView('editor'); }}
             onCreateCard={(etabId) => { setCurrentEtablissementId(etabId); setView('etablissement'); }} />}
@@ -1770,6 +2172,12 @@ function App() {
         <ProduitEditModal produit={editingProduit} fournisseurs={fournisseurs} user={user}
           onSave={handleSaveProduit} onRequestCreation={handleRequestCreation}
           onClose={() => { setEditingProduit(null); setIsCreatingProduit(false); }} />
+      )}
+
+      {isCreatingAgence && (
+        <CreateAgenceModal existing={fournisseurs}
+          onCreate={handleCreateAgence}
+          onClose={() => setIsCreatingAgence(false)} />
       )}
 
       {/* Badge de version en bas à gauche */}

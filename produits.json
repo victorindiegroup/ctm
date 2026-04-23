@@ -1,5 +1,5 @@
 {
-  "version": "2.1",
+  "version": "2.2",
   "etablissements": [
     {
       "id": "e1",
@@ -111,173 +111,530 @@
     }
   ],
   "fournisseurs": [
-    "A. GALLETY",
-    "ABBATUCCI - FRUCTUEUX VITIS",
-    "ADICCION",
-    "ADRIEN CAMUT - AVM",
-    "ALCOOLS À JOE",
-    "AMC",
-    "AMOREAU",
-    "AMPEVINO",
-    "ANATOLIE",
-    "APFFEL - MARC MEUNIER",
-    "ARLOT - GB VINS",
-    "AVM",
-    "Alzipratu",
-    "Antonio",
-    "BACCHUS",
-    "BALANSA",
-    "BANNERET - MARC MEUNIER",
-    "BART BEER",
-    "BELLE BRISE",
-    "BELLENE",
-    "BERE BENE - GAMBA",
-    "BILLECART SALMON - AMPEVINO",
-    "BOLLINGER",
-    "BONNEAU DU MARTRAY - AVM",
-    "BOTTLE AND MORE",
-    "CAMPAUX",
-    "CAROLINE FREY - VINS & VIGNERONS",
-    "CARPE DIEM",
-    "CASA DEL SOL",
-    "CASTEL GRAND CRU",
-    "CAVE DU PORT FRANC",
-    "CAVE DU PORT FRANC - MH",
-    "CELLIER GOUVERNEUR",
-    "CGM",
-    "CHATEAU DES MARRES",
-    "CHATEAU LA COSTE",
-    "CHAVY-CHOUET",
-    "CIBONNE - AVM",
-    "CLERGET",
-    "CLOS DE L'OURS",
-    "CLOS DE TART - AVM",
-    "CLOS DES B",
-    "CLOS PUY ARNAUD",
-    "CLOS VENTURI",
-    "COLIN - AVM",
-    "COMBIER - GB VINS",
-    "COMITE MEDOCAINE DES GRANDS CRU",
-    "COULEE DE SERRANT - FRUCTUEUX VITIS",
-    "COVADIS",
-    "Clos Culombo - GAMBA",
-    "DARBONNE",
-    "DASSAI",
-    "DE MONTILLE - MATTHIEU PERRIN",
-    "DOMAINE DE JEANNE",
-    "DOMAINE DE MARIE",
-    "DRAPPIER",
-    "DUBAND - AVM",
-    "DUCLOT",
-    "Degustation Selection",
-    "EN VUE",
-    "ESTOUBLON",
-    "FAMILLE PERRIN",
-    "FAMILLE TODESCHINI",
-    "FONDUGUES PRADUGUES",
-    "FREY / JABOULET",
-    "FRUCTUEUX VITIS",
-    "FUCH",
-    "GAMBA",
-    "GB VINS",
-    "GERARD BERTRAND",
-    "GLOUP WINES",
-    "GP SERVICES",
-    "GRAEME & BOTT - AVM",
-    "GRANDS JARDINS",
-    "GRANDS PINS",
-    "GUY CHARLEMAGNE",
-    "GVF",
-    "HENRI GIRAUD - GB VINS",
-    "HENRY BLANC",
-    "HERMANA",
-    "HIPPOLYTE LEDEE",
-    "INFINITIES WINES",
-    "JM VINS",
-    "KOOKABARRA",
-    "KUSMI TEA",
-    "KVGB",
-    "LA CAVE BERNARD MAGREZ",
-    "LA FAYETTE",
-    "LA MAISON DU WHISKY",
-    "LA PREUVE PAR VIN",
-    "LABALLE",
-    "LAMBRAYS - AVM",
-    "LATOUR - AVM",
-    "LATOUR - VINS & VIGNERONS",
-    "LAVAZZA",
-    "LECLERC",
-    "LES BOUIS",
-    "LES CAVES DU ROUSSILLON - AVM",
-    "LES MAITRES VIGNERONS",
-    "LES NOUVELLES PAILLES",
-    "LES VINOLOGUES",
-    "LES VINS D EDIS",
-    "LORON",
-    "LOUIS ROEDERER",
-    "MAISON TOURNIER",
-    "MAISON VILLEVERT",
-    "MALARD",
-    "MALHERBE - AMPEVINO",
-    "MARCHAND DE SOIF - FRUCTUEUX VITIS",
-    "MATTHIEU PERRIN",
-    "MDV - AVM",
-    "MH",
-    "MINUTY",
-    "MJG",
-    "MONT JOLY",
-    "MONTANER",
-    "MOÎSE TAÎEB",
-    "MP8 DISTRIBUTION",
-    "MURTOLI",
-    "NOLO HOUSE",
-    "NOVA SPIRIT",
-    "OLI STILL - MANGUIN EN PROVENCE",
-    "PARADELLA",
-    "PASCATI",
-    "PEGASUS",
-    "PERNOD RICARD",
-    "PERROT MINOT - AVM",
-    "PETER SICHEL",
-    "PETRUS",
-    "PEYRASSOL - MAISON AUSTRUY",
-    "PITOU'S CELLAR",
-    "POMMERY",
-    "POUSSE D'OR - GB VINS",
-    "QUERCIA - AVM",
-    "RAFFINVINI",
-    "RINAUDO",
-    "ROUGEARD - AVM",
-    "ROUILLERE",
-    "RUINART",
-    "SAINT MAUR",
-    "SANT'ARMETTU - AVM",
-    "SASOU DISTRIBUTION",
-    "SBH - STOCK",
-    "SEGECO",
-    "STOCK",
-    "SWEETSMOKE",
-    "SYLVINS",
-    "TABAC",
-    "TOUREVEQUE",
-    "TRAPET - FRUCTUEUX VITIS",
-    "TRAPET - MATTHIEU PERRIN",
-    "TRESALLET ARRAGONE",
-    "ULYSSE CAZABONNE",
-    "UNION NOUVELLE",
-    "VACCELLI",
-    "VDM - AVM",
-    "VERSION VIN",
-    "VICO - GB VINS",
-    "VIGNOBLE RAMATUELLE",
-    "VINQUEUR",
-    "VINS & VIGNERONS",
-    "VIOLOT GUILLEMARD",
-    "VOUGERAIE - AVM",
-    "WHISKY KUENTZ",
-    "WINE RL",
-    "XMONNOT - AMPEVINO",
-    "YUME"
+    {
+      "nom": "A. GALLETY",
+      "type": "direct"
+    },
+    {
+      "nom": "ADICCION",
+      "type": "direct"
+    },
+    {
+      "nom": "ALCOOLS À JOE",
+      "type": "direct"
+    },
+    {
+      "nom": "Alzipratu",
+      "type": "direct"
+    },
+    {
+      "nom": "AMC",
+      "type": "direct"
+    },
+    {
+      "nom": "AMOREAU",
+      "type": "direct"
+    },
+    {
+      "nom": "AMPEVINO",
+      "type": "agence"
+    },
+    {
+      "nom": "ANATOLIE",
+      "type": "direct"
+    },
+    {
+      "nom": "Antonio",
+      "type": "direct"
+    },
+    {
+      "nom": "APFFEL - MARC MEUNIER",
+      "type": "direct"
+    },
+    {
+      "nom": "AVM",
+      "type": "agence"
+    },
+    {
+      "nom": "BACCHUS",
+      "type": "direct"
+    },
+    {
+      "nom": "BALANSA",
+      "type": "direct"
+    },
+    {
+      "nom": "BANNERET - MARC MEUNIER",
+      "type": "direct"
+    },
+    {
+      "nom": "BART BEER",
+      "type": "direct"
+    },
+    {
+      "nom": "BELLE BRISE",
+      "type": "direct"
+    },
+    {
+      "nom": "BELLENE",
+      "type": "direct"
+    },
+    {
+      "nom": "BOLLINGER",
+      "type": "direct"
+    },
+    {
+      "nom": "BOTTLE AND MORE",
+      "type": "direct"
+    },
+    {
+      "nom": "CAMPAUX",
+      "type": "direct"
+    },
+    {
+      "nom": "CARPE DIEM",
+      "type": "direct"
+    },
+    {
+      "nom": "CASA DEL SOL",
+      "type": "direct"
+    },
+    {
+      "nom": "CASTEL GRAND CRU",
+      "type": "direct"
+    },
+    {
+      "nom": "CAVE DU PORT FRANC",
+      "type": "direct"
+    },
+    {
+      "nom": "CELLIER GOUVERNEUR",
+      "type": "direct"
+    },
+    {
+      "nom": "CGM",
+      "type": "direct"
+    },
+    {
+      "nom": "CHATEAU DES MARRES",
+      "type": "direct"
+    },
+    {
+      "nom": "CHATEAU LA COSTE",
+      "type": "direct"
+    },
+    {
+      "nom": "CHAVY-CHOUET",
+      "type": "direct"
+    },
+    {
+      "nom": "CLERGET",
+      "type": "direct"
+    },
+    {
+      "nom": "CLOS DE L'OURS",
+      "type": "direct"
+    },
+    {
+      "nom": "CLOS DES B",
+      "type": "direct"
+    },
+    {
+      "nom": "CLOS PUY ARNAUD",
+      "type": "direct"
+    },
+    {
+      "nom": "CLOS VENTURI",
+      "type": "direct"
+    },
+    {
+      "nom": "COMITE MEDOCAINE DES GRANDS CRU",
+      "type": "direct"
+    },
+    {
+      "nom": "COVADIS",
+      "type": "direct"
+    },
+    {
+      "nom": "DARBONNE",
+      "type": "direct"
+    },
+    {
+      "nom": "DASSAI",
+      "type": "direct"
+    },
+    {
+      "nom": "Degustation Selection",
+      "type": "direct"
+    },
+    {
+      "nom": "DOMAINE DE JEANNE",
+      "type": "direct"
+    },
+    {
+      "nom": "DOMAINE DE MARIE",
+      "type": "direct"
+    },
+    {
+      "nom": "DRAPPIER",
+      "type": "direct"
+    },
+    {
+      "nom": "DUCLOT",
+      "type": "direct"
+    },
+    {
+      "nom": "EN VUE",
+      "type": "direct"
+    },
+    {
+      "nom": "ESTOUBLON",
+      "type": "direct"
+    },
+    {
+      "nom": "FAMILLE PERRIN",
+      "type": "direct"
+    },
+    {
+      "nom": "FAMILLE TODESCHINI",
+      "type": "direct"
+    },
+    {
+      "nom": "FONDUGUES PRADUGUES",
+      "type": "direct"
+    },
+    {
+      "nom": "FREY / JABOULET",
+      "type": "direct"
+    },
+    {
+      "nom": "FRUCTUEUX VITIS",
+      "type": "agence"
+    },
+    {
+      "nom": "FUCH",
+      "type": "direct"
+    },
+    {
+      "nom": "GAMBA",
+      "type": "agence"
+    },
+    {
+      "nom": "GB VINS",
+      "type": "agence"
+    },
+    {
+      "nom": "GERARD BERTRAND",
+      "type": "direct"
+    },
+    {
+      "nom": "GLOUP WINES",
+      "type": "direct"
+    },
+    {
+      "nom": "GP SERVICES",
+      "type": "direct"
+    },
+    {
+      "nom": "GRANDS JARDINS",
+      "type": "direct"
+    },
+    {
+      "nom": "GRANDS PINS",
+      "type": "direct"
+    },
+    {
+      "nom": "GUY CHARLEMAGNE",
+      "type": "direct"
+    },
+    {
+      "nom": "GVF",
+      "type": "direct"
+    },
+    {
+      "nom": "HENRY BLANC",
+      "type": "direct"
+    },
+    {
+      "nom": "HERMANA",
+      "type": "direct"
+    },
+    {
+      "nom": "HIPPOLYTE LEDEE",
+      "type": "direct"
+    },
+    {
+      "nom": "INFINITIES WINES",
+      "type": "direct"
+    },
+    {
+      "nom": "JM VINS",
+      "type": "direct"
+    },
+    {
+      "nom": "KOOKABARRA",
+      "type": "direct"
+    },
+    {
+      "nom": "KUSMI TEA",
+      "type": "direct"
+    },
+    {
+      "nom": "KVGB",
+      "type": "direct"
+    },
+    {
+      "nom": "LA CAVE BERNARD MAGREZ",
+      "type": "direct"
+    },
+    {
+      "nom": "LA FAYETTE",
+      "type": "direct"
+    },
+    {
+      "nom": "LA MAISON DU WHISKY",
+      "type": "direct"
+    },
+    {
+      "nom": "LA PREUVE PAR VIN",
+      "type": "direct"
+    },
+    {
+      "nom": "LABALLE",
+      "type": "direct"
+    },
+    {
+      "nom": "LAVAZZA",
+      "type": "direct"
+    },
+    {
+      "nom": "LECLERC",
+      "type": "direct"
+    },
+    {
+      "nom": "LES BOUIS",
+      "type": "direct"
+    },
+    {
+      "nom": "LES MAITRES VIGNERONS",
+      "type": "direct"
+    },
+    {
+      "nom": "LES NOUVELLES PAILLES",
+      "type": "direct"
+    },
+    {
+      "nom": "LES VINOLOGUES",
+      "type": "direct"
+    },
+    {
+      "nom": "LES VINS D EDIS",
+      "type": "direct"
+    },
+    {
+      "nom": "LORON",
+      "type": "direct"
+    },
+    {
+      "nom": "LOUIS ROEDERER",
+      "type": "direct"
+    },
+    {
+      "nom": "MAISON TOURNIER",
+      "type": "direct"
+    },
+    {
+      "nom": "MAISON VILLEVERT",
+      "type": "direct"
+    },
+    {
+      "nom": "MALARD",
+      "type": "direct"
+    },
+    {
+      "nom": "MATTHIEU PERRIN",
+      "type": "agence"
+    },
+    {
+      "nom": "MH",
+      "type": "agence"
+    },
+    {
+      "nom": "MINUTY",
+      "type": "direct"
+    },
+    {
+      "nom": "MJG",
+      "type": "direct"
+    },
+    {
+      "nom": "MONT JOLY",
+      "type": "direct"
+    },
+    {
+      "nom": "MONTANER",
+      "type": "direct"
+    },
+    {
+      "nom": "MOÎSE TAÎEB",
+      "type": "direct"
+    },
+    {
+      "nom": "MP8 DISTRIBUTION",
+      "type": "direct"
+    },
+    {
+      "nom": "MURTOLI",
+      "type": "direct"
+    },
+    {
+      "nom": "NOLO HOUSE",
+      "type": "direct"
+    },
+    {
+      "nom": "NOVA SPIRIT",
+      "type": "direct"
+    },
+    {
+      "nom": "OLI STILL - MANGUIN EN PROVENCE",
+      "type": "direct"
+    },
+    {
+      "nom": "PARADELLA",
+      "type": "direct"
+    },
+    {
+      "nom": "PASCATI",
+      "type": "direct"
+    },
+    {
+      "nom": "PEGASUS",
+      "type": "direct"
+    },
+    {
+      "nom": "PERNOD RICARD",
+      "type": "direct"
+    },
+    {
+      "nom": "PETER SICHEL",
+      "type": "direct"
+    },
+    {
+      "nom": "PETRUS",
+      "type": "direct"
+    },
+    {
+      "nom": "PEYRASSOL - MAISON AUSTRUY",
+      "type": "direct"
+    },
+    {
+      "nom": "PITOU'S CELLAR",
+      "type": "direct"
+    },
+    {
+      "nom": "POMMERY",
+      "type": "direct"
+    },
+    {
+      "nom": "RAFFINVINI",
+      "type": "direct"
+    },
+    {
+      "nom": "RINAUDO",
+      "type": "direct"
+    },
+    {
+      "nom": "ROUILLERE",
+      "type": "direct"
+    },
+    {
+      "nom": "RUINART",
+      "type": "direct"
+    },
+    {
+      "nom": "SAINT MAUR",
+      "type": "direct"
+    },
+    {
+      "nom": "SASOU DISTRIBUTION",
+      "type": "direct"
+    },
+    {
+      "nom": "SBH - STOCK",
+      "type": "direct"
+    },
+    {
+      "nom": "SEGECO",
+      "type": "direct"
+    },
+    {
+      "nom": "STOCK",
+      "type": "direct"
+    },
+    {
+      "nom": "SWEETSMOKE",
+      "type": "direct"
+    },
+    {
+      "nom": "SYLVINS",
+      "type": "direct"
+    },
+    {
+      "nom": "TABAC",
+      "type": "direct"
+    },
+    {
+      "nom": "TOUREVEQUE",
+      "type": "direct"
+    },
+    {
+      "nom": "TRESALLET ARRAGONE",
+      "type": "direct"
+    },
+    {
+      "nom": "ULYSSE CAZABONNE",
+      "type": "direct"
+    },
+    {
+      "nom": "UNION NOUVELLE",
+      "type": "direct"
+    },
+    {
+      "nom": "VACCELLI",
+      "type": "direct"
+    },
+    {
+      "nom": "VERSION VIN",
+      "type": "direct"
+    },
+    {
+      "nom": "VIGNOBLE RAMATUELLE",
+      "type": "direct"
+    },
+    {
+      "nom": "VINQUEUR",
+      "type": "direct"
+    },
+    {
+      "nom": "VINS & VIGNERONS",
+      "type": "agence"
+    },
+    {
+      "nom": "VIOLOT GUILLEMARD",
+      "type": "direct"
+    },
+    {
+      "nom": "WHISKY KUENTZ",
+      "type": "direct"
+    },
+    {
+      "nom": "WINE RL",
+      "type": "direct"
+    },
+    {
+      "nom": "YUME",
+      "type": "direct"
+    }
   ],
   "produits": [
     {
